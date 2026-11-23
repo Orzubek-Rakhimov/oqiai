@@ -9,3 +9,10 @@ export type LibraryStory = {
     isNew: boolean;
     bestStars: number | null;
 };
+
+export type SuggestedStory = {
+    id: number;
+    title: string;
+    level: StoryLevel;
+    minutes: number;
+};

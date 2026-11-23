@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Avatar;
+use Carbon\CarbonImmutable;
 use Database\Factories\ChildFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -32,6 +33,11 @@ class Child extends Model
 {
     /** @use HasFactory<ChildFactory> */
     use HasFactory;
+
+    /**
+     * The time zone whose calendar days the Streak counts.
+     */
+    public const STREAK_TIMEZONE = 'Asia/Tashkent';
 
     /**
      * Get the Parent who owns this Child.
@@ -75,6 +81,63 @@ class Child extends Model
     public function starsTotal(): int
     {
         return $this->bestStarsPerStory()->sum();
+    }
+
+    /**
+     * Get the Child's Streak: the number of consecutive Tashkent calendar days
+     * with at least one finished Reading, counting back from today, or from
+     * yesterday if nothing has been finished today yet.
+     */
+    public function streak(): int
+    {
+        $daysWithAFinishedReading = $this->readings()
+            ->finished()
+            ->toBase()
+            ->pluck('finished_at')
+            ->map(fn (mixed $finishedAt): string => CarbonImmutable::parse((string) $finishedAt, 'UTC')
+                ->setTimezone(self::STREAK_TIMEZONE)
+                ->toDateString())
+            ->flip();
+
+        $day = CarbonImmutable::now(self::STREAK_TIMEZONE)->startOfDay();
+
+        if (! $daysWithAFinishedReading->has($day->toDateString())) {
+            $day = $day->subDay();
+        }
+
+        $streak = 0;
+
+        while ($daysWithAFinishedReading->has($day->toDateString())) {
+            $streak++;
+            $day = $day->subDay();
+        }
+
+        return $streak;
+    }
+
+    /**
+     * Get the Level suggested first for the Child's Grade: Grade 1 gets
+     * Level 1, Grade 2 gets Level 2 and Grades 3 and 4 get Level 3.
+     */
+    public function suggestedLevel(): int
+    {
+        return min($this->grade, 3);
+    }
+
+    /**
+     * Get the Story to suggest next: the first Story, in library order, at the
+     * suggested Level that the Child has not finished, falling back to any
+     * Story they have not finished. Null once every Story is finished.
+     */
+    public function suggestedStory(): ?Story
+    {
+        $unfinishedStories = Story::query()
+            ->whereNotIn('id', $this->readings()->finished()->select('story_id'))
+            ->orderBy('level')
+            ->orderBy('title');
+
+        return (clone $unfinishedStories)->where('level', $this->suggestedLevel())->first()
+            ?? $unfinishedStories->first();
     }
 
     /**
