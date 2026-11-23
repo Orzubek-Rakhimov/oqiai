@@ -46,6 +46,18 @@ class Reading extends Model
     use HasFactory;
 
     /**
+     * The least Accuracy, in percent, that earns three Stars.
+     */
+    public const int THREE_STARS_ACCURACY = 95;
+
+    /**
+     * The least Accuracy, in percent, that earns two Stars; anything less earns one.
+     */
+    public const int TWO_STARS_ACCURACY = 85;
+
+    private const int MILLISECONDS_PER_MINUTE = 60_000;
+
+    /**
      * Get the Child who is reading.
      *
      * @return BelongsTo<Child, $this>
@@ -172,11 +184,11 @@ class Reading extends Model
             'finished_at' => now(),
             'accuracy' => $wordCount > 0 ? $correctFirstTry / $wordCount : 0.0,
             'stars' => match (true) {
-                $correctFirstTry * 100 >= $wordCount * 95 => 3,
-                $correctFirstTry * 100 >= $wordCount * 85 => 2,
+                $correctFirstTry * 100 >= $wordCount * self::THREE_STARS_ACCURACY => 3,
+                $correctFirstTry * 100 >= $wordCount * self::TWO_STARS_ACCURACY => 2,
                 default => 1,
             },
-            'reading_speed' => $this->reading_time_ms > 0 ? $correctFirstTry / ($this->reading_time_ms / 60000) : 0.0,
+            'reading_speed' => $this->reading_time_ms > 0 ? $correctFirstTry / ($this->reading_time_ms / self::MILLISECONDS_PER_MINUTE) : 0.0,
         ])->save();
     }
 

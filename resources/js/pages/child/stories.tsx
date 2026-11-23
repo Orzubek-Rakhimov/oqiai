@@ -7,24 +7,27 @@ import { store as storeReading } from '@/routes/readings';
 import { index as storiesIndex } from '@/routes/stories';
 import type { LibraryStory, StoryLevel } from '@/types';
 
-const levelFilters: { level: StoryLevel | null; label: string }[] = [
-    { level: null, label: 'Hammasi' },
-    { level: 1, label: '1-daraja' },
-    { level: 2, label: '2-daraja' },
-    { level: 3, label: '3-daraja' },
-];
-
 const coverColours = ['#24665F', '#7A4E9E', '#B83E22', '#2F5F9E'];
 
 export default function Stories({
+    levels,
     level,
     stories,
     starsTotal,
 }: {
+    levels: StoryLevel[];
     level: StoryLevel | null;
     stories: LibraryStory[];
     starsTotal: number;
 }) {
+    const levelFilters: { level: StoryLevel | null; label: string }[] = [
+        { level: null, label: 'Hammasi' },
+        ...levels.map((filterLevel) => ({
+            level: filterLevel,
+            label: `${filterLevel}-daraja`,
+        })),
+    ];
+
     return (
         <>
             <Head title="Hikoyalar" />

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Parent;
 
 use App\Http\Controllers\Controller;
 use App\Models\Child;
+use App\Reports\ChildProgress;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -28,15 +29,27 @@ class HomeController extends Controller
         return Inertia::render('parent/home', [
             'childProfiles' => $children->map(fn (Child $child): array => $child->only(['id', 'name', 'grade', 'avatar'])),
             'selectedChildId' => $selectedChild?->id,
-            'progress' => $selectedChild === null ? null : [
-                'hasRead' => $selectedChild->readings()->exists(),
-                'daysPractised' => $selectedChild->daysPractisedThisWeek(),
-                'storiesFinished' => $selectedChild->storiesFinishedThisWeek(),
-                'readingSpeedByWeek' => $selectedChild->readingSpeedByWeek(),
-                'hardWords' => $selectedChild->hardWords(),
-                'streak' => $selectedChild->streak(),
-                'starsTotal' => $selectedChild->starsTotal(),
-            ],
+            'progress' => $selectedChild === null ? null : $this->progressOf($selectedChild),
         ]);
+    }
+
+    /**
+     * Get the progress figures the Parent screen shows for one Child.
+     *
+     * @return array{hasRead: bool, daysPractised: int, storiesFinished: int, readingSpeedByWeek: list<array{weekStart: string, readingSpeed: int|null}>, hardWords: list<array{word: string, count: int}>, streak: int, starsTotal: int}
+     */
+    private function progressOf(Child $child): array
+    {
+        $progress = new ChildProgress($child);
+
+        return [
+            'hasRead' => $child->readings()->exists(),
+            'daysPractised' => $progress->daysPractisedThisWeek(),
+            'storiesFinished' => $progress->storiesFinishedThisWeek(),
+            'readingSpeedByWeek' => $progress->readingSpeedByWeek(),
+            'hardWords' => $progress->hardWords(),
+            'streak' => $child->streak(),
+            'starsTotal' => $child->starsTotal(),
+        ];
     }
 }

@@ -20,7 +20,7 @@ class StoryController extends Controller
     public function index(Request $request): Response
     {
         $child = $this->activeChild($request);
-        $level = in_array($request->integer('level'), [1, 2, 3], true) ? $request->integer('level') : null;
+        $level = in_array($request->integer('level'), Story::LEVELS, true) ? $request->integer('level') : null;
 
         $bestStars = $child->bestStarsPerStory();
 
@@ -39,6 +39,7 @@ class StoryController extends Controller
             ]);
 
         return Inertia::render('child/stories', [
+            'levels' => Story::LEVELS,
             'level' => $level,
             'stories' => $stories,
             'starsTotal' => $bestStars->sum(),

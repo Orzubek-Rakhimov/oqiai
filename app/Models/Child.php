@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use App\Enums\Avatar;
-use App\Enums\WordOutcome;
-use App\Stories\UzbekWord;
 use Carbon\CarbonImmutable;
 use Database\Factories\ChildFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -38,9 +36,10 @@ class Child extends Model
     use HasFactory;
 
     /**
-     * The time zone whose calendar days the Streak counts.
+     * The time zone of the Child's calendar: the days and weeks that the
+     * Streak and the Parent screen's figures count.
      */
-    public const STREAK_TIMEZONE = 'Asia/Tashkent';
+    public const string TIMEZONE = 'Asia/Tashkent';
 
     /**
      * Get the Parent who owns this Child.
@@ -93,16 +92,11 @@ class Child extends Model
      */
     public function streak(): int
     {
-        $daysWithAFinishedReading = $this->readings()
-            ->finished()
-            ->toBase()
-            ->pluck('finished_at')
-            ->map(fn (mixed $finishedAt): string => CarbonImmutable::parse((string) $finishedAt, 'UTC')
-                ->setTimezone(self::STREAK_TIMEZONE)
-                ->toDateString())
+        $daysWithAFinishedReading = $this->finishedReadings()
+            ->map(fn (array $reading): string => $reading['finished_at']->toDateString())
             ->flip();
 
-        $day = CarbonImmutable::now(self::STREAK_TIMEZONE)->startOfDay();
+        $day = CarbonImmutable::now(self::TIMEZONE)->startOfDay();
 
         if (! $daysWithAFinishedReading->has($day->toDateString())) {
             $day = $day->subDay();
@@ -119,115 +113,22 @@ class Child extends Model
     }
 
     /**
-     * Get the number of distinct Tashkent days this week (Monday to Sunday)
-     * on which the Child finished at least one Reading.
-     */
-    public function daysPractisedThisWeek(): int
-    {
-        return $this->readingsFinishedSince(self::startOfTashkentWeek())
-            ->map(fn (array $reading): string => $reading['finished_at']->toDateString())
-            ->unique()
-            ->count();
-    }
-
-    /**
-     * Get the number of different Stories the Child finished this Tashkent week.
-     */
-    public function storiesFinishedThisWeek(): int
-    {
-        return $this->readingsFinishedSince(self::startOfTashkentWeek())
-            ->pluck('story_id')
-            ->unique()
-            ->count();
-    }
-
-    /**
-     * Get the average Reading speed of the Child's finished Readings for this
-     * Tashkent week and each of the given number of weeks before it, oldest
-     * first. A week with no finished Reading has no Reading speed.
-     *
-     * @return list<array{weekStart: string, readingSpeed: int|null}>
-     */
-    public function readingSpeedByWeek(int $weeksBefore = 3): array
-    {
-        $speedsByWeek = $this->readingsFinishedSince(self::startOfTashkentWeek($weeksBefore))
-            ->groupBy(fn (array $reading): string => $reading['finished_at']->startOfWeek(CarbonImmutable::MONDAY)->toDateString())
-            ->map(fn (SupportCollection $readings): ?float => $readings->pluck('reading_speed')->filter(fn (?float $speed): bool => $speed !== null)->avg());
-
-        return array_values(collect(range($weeksBefore, 0))
-            ->map(function (int $weeksAgo) use ($speedsByWeek): array {
-                $weekStart = self::startOfTashkentWeek($weeksAgo)->toDateString();
-                $averageSpeed = $speedsByWeek->get($weekStart);
-
-                return [
-                    'weekStart' => $weekStart,
-                    'readingSpeed' => $averageSpeed === null ? null : (int) round($averageSpeed),
-                ];
-            })
-            ->all());
-    }
-
-    /**
-     * Get the Child's Hard words: words with a "correct on retry" or "needed
-     * Syllable help" result in the last 7 days, grouped by normalised word and
-     * ranked by how often, then alphabetically. Each is shown as a Story writes
-     * it (the earliest of its hard occurrences), without the punctuation around it.
-     *
-     * @return list<array{word: string, count: int}>
-     */
-    public function hardWords(int $limit = 5): array
-    {
-        $hardWords = WordResult::query()
-            ->join('readings', 'readings.id', '=', 'word_results.reading_id')
-            ->join('words', 'words.id', '=', 'word_results.word_id')
-            ->where('readings.child_id', $this->id)
-            ->whereIn('word_results.outcome', [WordOutcome::CorrectOnRetry, WordOutcome::NeededSyllableHelp])
-            ->where('word_results.recorded_at', '>=', now()->subDays(7))
-            ->groupBy('words.normalized')
-            ->selectRaw('words.normalized, min(words.id) as first_word_id, count(*) as times')
-            ->orderByDesc('times')
-            ->orderBy('words.normalized')
-            ->limit($limit)
-            ->toBase()
-            ->get();
-
-        $writtenForms = Word::query()->whereKey($hardWords->pluck('first_word_id'))->pluck('text', 'id');
-
-        return array_values($hardWords
-            ->map(fn (object $hardWord): array => [
-                'word' => UzbekWord::asWritten((string) $writtenForms->get((int) $hardWord->first_word_id)),
-                'count' => (int) $hardWord->times,
-            ])
-            ->all());
-    }
-
-    /**
-     * Get the Monday that starts the current Tashkent week, or a week before it.
-     */
-    private static function startOfTashkentWeek(int $weeksAgo = 0): CarbonImmutable
-    {
-        return CarbonImmutable::now(self::STREAK_TIMEZONE)
-            ->startOfWeek(CarbonImmutable::MONDAY)
-            ->subWeeks($weeksAgo);
-    }
-
-    /**
-     * Get the Child's Readings finished since the given moment, with their
-     * finish time in Tashkent.
+     * Get the Child's finished Readings, or those finished since the given
+     * moment, with their finish time on the Tashkent clock.
      *
      * @return SupportCollection<int, array{story_id: int, reading_speed: float|null, finished_at: CarbonImmutable}>
      */
-    private function readingsFinishedSince(CarbonImmutable $since): SupportCollection
+    public function finishedReadings(?CarbonImmutable $since = null): SupportCollection
     {
         return $this->readings()
             ->finished()
-            ->where('finished_at', '>=', $since->utc())
+            ->when($since, fn (Builder $query, CarbonImmutable $since) => $query->where('finished_at', '>=', $since->utc()))
             ->toBase()
             ->get(['story_id', 'reading_speed', 'finished_at'])
             ->map(fn (object $reading): array => [
                 'story_id' => (int) $reading->story_id,
                 'reading_speed' => $reading->reading_speed === null ? null : (float) $reading->reading_speed,
-                'finished_at' => CarbonImmutable::parse((string) $reading->finished_at, 'UTC')->setTimezone(self::STREAK_TIMEZONE),
+                'finished_at' => CarbonImmutable::parse((string) $reading->finished_at, 'UTC')->setTimezone(self::TIMEZONE),
             ]);
     }
 
@@ -237,7 +138,7 @@ class Child extends Model
      */
     public function suggestedLevel(): int
     {
-        return min($this->grade, 3);
+        return min($this->grade, max(Story::LEVELS));
     }
 
     /**

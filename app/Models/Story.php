@@ -34,6 +34,13 @@ class Story extends Model
     use HasFactory;
 
     /**
+     * The Levels a Story can have, easiest first.
+     *
+     * @var list<int>
+     */
+    public const array LEVELS = [1, 2, 3];
+
+    /**
      * Get the Story's sentences in reading order.
      *
      * @return HasMany<Sentence, $this>

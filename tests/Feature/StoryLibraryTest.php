@@ -16,6 +16,7 @@ test('the library lists every story with its title, level and minutes, easiest f
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('child/stories')
+            ->where('levels', [1, 2, 3])
             ->where('level', null)
             ->where('stories', [
                 ['id' => $ali->id, 'slug' => 'ali-va-mushuk', 'title' => 'Ali va mushuk', 'level' => 1, 'minutes' => 2, 'isNew' => true, 'bestStars' => null],

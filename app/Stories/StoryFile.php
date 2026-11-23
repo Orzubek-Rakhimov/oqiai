@@ -2,6 +2,8 @@
 
 namespace App\Stories;
 
+use App\Models\Story;
+
 /**
  * A parsed Story file: its header, its text split into sentences and words,
  * and each word's syllables (overrides first, then the Uzbek rule).
@@ -69,8 +71,11 @@ final readonly class StoryFile
             throw new InvalidStoryFile("the header \"{$missingKey}\" is missing");
         }
 
-        if (! in_array($values['level'], ['1', '2', '3'], true)) {
-            throw new InvalidStoryFile('level must be 1, 2 or 3');
+        if (! in_array($values['level'], array_map(strval(...), Story::LEVELS), true)) {
+            $levels = Story::LEVELS;
+            $highestLevel = array_pop($levels);
+
+            throw new InvalidStoryFile('level must be '.implode(', ', $levels).' or '.$highestLevel);
         }
 
         if (! ctype_digit($values['minutes']) || (int) $values['minutes'] < 1) {
