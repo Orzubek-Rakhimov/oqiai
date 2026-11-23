@@ -162,3 +162,14 @@ test('the check needs a recording', function () {
 
     expect(speech()->requests())->toBe([]);
 });
+
+test('the check recording must be audio in a format browsers record', function () {
+    $child = Child::factory()->create();
+
+    $this->actingAs($child->parent)
+        ->postJson(route('children.microphone.store', $child), ['audio' => UploadedFile::fake()->create('notes.pdf', 10, 'application/pdf')])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['audio']);
+
+    expect(speech()->requests())->toBe([]);
+});

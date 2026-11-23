@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\WordOutcome;
-use App\Speech\WordClips;
+use App\Stories\UzbekWord;
 use Database\Factories\ReadingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -43,6 +43,18 @@ class Reading extends Model
 {
     /** @use HasFactory<ReadingFactory> */
     use HasFactory;
+
+    /**
+     * The least Accuracy, in percent, that earns three Stars.
+     */
+    public const int THREE_STARS_ACCURACY = 95;
+
+    /**
+     * The least Accuracy, in percent, that earns two Stars; anything less earns one.
+     */
+    public const int TWO_STARS_ACCURACY = 85;
+
+    private const int MILLISECONDS_PER_MINUTE = 60_000;
 
     /**
      * Get the Child who is reading.
@@ -108,29 +120,6 @@ class Reading extends Model
     }
 
     /**
-     * Get the pending word as the reading screen shows it, or null when there is none.
-     *
-     * @return array{stage: 'retry'|'syllable_help', sentence: int, position: int, text: string, syllables: list<string>, clips: array{syllables: string|null, word: string|null}}|null
-     */
-    public function pendingWordForReader(): ?array
-    {
-        $word = $this->pendingWord();
-
-        if ($word === null) {
-            return null;
-        }
-
-        return [
-            'stage' => $this->syllable_help_word_id === null ? 'retry' : 'syllable_help',
-            'sentence' => $word->sentence->position,
-            'position' => $word->position,
-            'text' => $word->text,
-            'syllables' => $word->syllables,
-            'clips' => WordClips::urls($word),
-        ];
-    }
-
-    /**
      * Get the sentence the Child reads next, or null once every sentence is read.
      */
     public function nextSentence(): ?Sentence
@@ -171,11 +160,11 @@ class Reading extends Model
             'finished_at' => now(),
             'accuracy' => $wordCount > 0 ? $correctFirstTry / $wordCount : 0.0,
             'stars' => match (true) {
-                $correctFirstTry * 100 >= $wordCount * 95 => 3,
-                $correctFirstTry * 100 >= $wordCount * 85 => 2,
+                $correctFirstTry * 100 >= $wordCount * self::THREE_STARS_ACCURACY => 3,
+                $correctFirstTry * 100 >= $wordCount * self::TWO_STARS_ACCURACY => 2,
                 default => 1,
             },
-            'reading_speed' => $this->reading_time_ms > 0 ? $correctFirstTry / ($this->reading_time_ms / 60000) : 0.0,
+            'reading_speed' => $this->reading_time_ms > 0 ? $correctFirstTry / ($this->reading_time_ms / self::MILLISECONDS_PER_MINUTE) : 0.0,
         ])->save();
     }
 
@@ -196,7 +185,7 @@ class Reading extends Model
             ->orderBy('words.position')
             ->get(['words.text', 'words.normalized'])
             ->unique('normalized')
-            ->map(fn (Word $word): string => (string) preg_replace('/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/u', '', $word->text))
+            ->map(fn (Word $word): string => UzbekWord::asWritten($word->text))
             ->all());
     }
 

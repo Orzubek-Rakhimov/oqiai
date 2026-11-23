@@ -6,14 +6,14 @@ use App\Concerns\HearsTheChild;
 use App\Enums\WordOutcome;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Child\RetryRequest;
-use App\Models\Child;
 use App\Models\Reading;
+use App\Models\Word;
 use App\Speech\SpeechToText;
-use App\Speech\SpeechToTextFailed;
 use App\Stories\WordMatcher;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Scores the one retry a misread word gets, read on its own. Correct is
@@ -30,9 +30,7 @@ class RetryController extends Controller
      */
     public function store(RetryRequest $request, Reading $reading, SpeechToText $speechToText): JsonResponse
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
-        abort_unless($reading->child()->is($child), 404);
+        Gate::authorize('update', [$reading, $this->activeChild($request)]);
         abort_if($reading->finished_at !== null || $reading->syllable_help_word_id !== null, 409);
 
         $word = $reading->pendingWord();
@@ -43,29 +41,30 @@ class RetryController extends Controller
             409,
         );
 
+        return $this->scoreClip($speechToText, $request->file('audio'), $word->text, $reading, function (array $heard) use ($reading, $word, $request): array {
+            $correct = WordMatcher::match([$word->normalized], $heard)[0];
+
+            $this->record($reading, $word, $correct, $request->integer('duration_ms'));
+
+            return ['correct' => $correct];
+        });
+    }
+
+    /**
+     * Record the retry: the word's outcome, the clip's time, and either the
+     * next word in the retry queue or Syllable help for this one.
+     */
+    private function record(Reading $reading, Word $word, bool $correct, int $durationMs): void
+    {
         try {
-            $heard = $this->hear($speechToText, $request->file('audio'), $word->text);
-        } catch (SpeechToTextFailed $failure) {
-            report($failure);
-
-            return $this->unheard('service_failed');
-        }
-
-        if ($heard === []) {
-            return $this->unheard('nothing_heard');
-        }
-
-        $correct = WordMatcher::match([$word->normalized], $heard)[0];
-
-        try {
-            DB::transaction(function () use ($reading, $word, $correct, $request): void {
+            DB::transaction(function () use ($reading, $word, $correct, $durationMs): void {
                 $reading->wordResults()->create([
                     'word_id' => $word->id,
                     'outcome' => $correct ? WordOutcome::CorrectOnRetry : WordOutcome::NeededSyllableHelp,
                     'recorded_at' => now(),
                 ]);
 
-                Reading::query()->whereKey($reading->id)->increment('reading_time_ms', $request->integer('duration_ms'), [
+                Reading::query()->whereKey($reading->id)->increment('reading_time_ms', $durationMs, [
                     'pending_retry_word_ids' => json_encode(array_slice($reading->pending_retry_word_ids ?? [], 1)),
                     'syllable_help_word_id' => $correct ? null : $word->id,
                 ]);
@@ -73,16 +72,5 @@ class RetryController extends Controller
         } catch (UniqueConstraintViolationException) {
             abort(409);
         }
-
-        $reading->refresh();
-        $reading->finishIfComplete();
-
-        return response()->json([
-            'status' => 'scored',
-            'correct' => $correct,
-            'pendingWord' => $reading->pendingWordForReader(),
-            'progress' => $reading->progress(),
-            'nextSentence' => $reading->nextSentence()?->toReaderArray(),
-        ]);
     }
 }

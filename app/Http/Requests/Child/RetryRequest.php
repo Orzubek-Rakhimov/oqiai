@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Child;
 
+use App\Concerns\AudioClipValidationRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -11,6 +12,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class RetryRequest extends FormRequest
 {
+    use AudioClipValidationRules;
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -21,7 +24,7 @@ class RetryRequest extends FormRequest
         return [
             'sentence' => ['required', 'integer', 'min:0'],
             'word' => ['required', 'integer', 'min:0'],
-            'audio' => ['required', 'file', 'max:5120'],
+            'audio' => $this->audioClipRules(),
             'duration_ms' => ['required', 'integer', 'min:0', 'max:'.SentenceRequest::MAX_DURATION_MS],
         ];
     }

@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Child;
 
 use App\Http\Controllers\Controller;
-use App\Models\Child;
 use App\Models\Story;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,16 +19,14 @@ class StoryController extends Controller
      */
     public function index(Request $request): Response
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
-        $level = in_array($request->integer('level'), [1, 2, 3], true) ? $request->integer('level') : null;
+        $child = $this->activeChild($request);
+        $level = in_array($request->integer('level'), Story::LEVELS, true) ? $request->integer('level') : null;
 
         $bestStars = $child->bestStarsPerStory();
 
         $stories = Story::query()
-            ->when($level, fn ($query) => $query->where('level', $level))
-            ->orderBy('level')
-            ->orderBy('title')
+            ->when($level, fn (Builder $query, int $level) => $query->where('level', $level))
+            ->inLibraryOrder()
             ->get()
             ->map(fn (Story $story): array => [
                 'id' => $story->id,
@@ -41,6 +39,7 @@ class StoryController extends Controller
             ]);
 
         return Inertia::render('child/stories', [
+            'levels' => Story::LEVELS,
             'level' => $level,
             'stories' => $stories,
             'starsTotal' => $bestStars->sum(),

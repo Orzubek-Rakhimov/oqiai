@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Database\Factories\StoryFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +32,13 @@ class Story extends Model
 {
     /** @use HasFactory<StoryFactory> */
     use HasFactory;
+
+    /**
+     * The Levels a Story can have, easiest first.
+     *
+     * @var list<int>
+     */
+    public const array LEVELS = [1, 2, 3];
 
     /**
      * Get the Story's sentences in reading order.
@@ -62,17 +71,15 @@ class Story extends Model
     }
 
     /**
-     * Get the Story after this one in library order (easiest Level first, then by title), or null for the last one.
+     * Order the query as the library lists Stories: easiest Level first, then
+     * by title, with the id breaking any tie.
+     *
+     * @param  Builder<Story>  $query
      */
-    public function next(): ?self
+    #[Scope]
+    protected function inLibraryOrder(Builder $query): void
     {
-        return self::query()
-            ->where(fn ($query) => $query
-                ->where('level', '>', $this->level)
-                ->orWhere(fn ($query) => $query->where('level', $this->level)->where('title', '>', $this->title)))
-            ->orderBy('level')
-            ->orderBy('title')
-            ->first();
+        $query->orderBy('level')->orderBy('title')->orderBy('id');
     }
 
     /**

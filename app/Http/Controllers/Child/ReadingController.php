@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Child;
 
 use App\Http\Controllers\Controller;
-use App\Models\Child;
+use App\Http\Presenters\ReadingScreen;
 use App\Models\Reading;
 use App\Models\Story;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,8 +22,7 @@ class ReadingController extends Controller
      */
     public function store(Request $request, Story $story): RedirectResponse
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
+        $child = $this->activeChild($request);
 
         $reading = $child->readings()->unfinished()->whereBelongsTo($story)->first()
             ?? $child->readings()->make(['started_at' => now()])->story()->associate($story);
@@ -38,9 +38,7 @@ class ReadingController extends Controller
      */
     public function show(Request $request, Reading $reading): Response|RedirectResponse
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
-        abort_unless($reading->child()->is($child), 404);
+        Gate::authorize('view', [$reading, $this->activeChild($request)]);
 
         if ($reading->finished_at !== null) {
             return to_route('readings.result', $reading);
@@ -50,8 +48,8 @@ class ReadingController extends Controller
             'reading' => ['id' => $reading->id],
             'story' => $reading->story->only(['id', 'title']),
             'progress' => $reading->progress(),
-            'sentence' => $reading->nextSentence()?->toReaderArray(),
-            'pendingWord' => $reading->pendingWordForReader(),
+            'sentence' => ReadingScreen::sentence($reading->nextSentence()),
+            'pendingWord' => ReadingScreen::pendingWord($reading),
         ]);
     }
 
@@ -60,9 +58,8 @@ class ReadingController extends Controller
      */
     public function result(Request $request, Reading $reading): Response|RedirectResponse
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
-        abort_unless($reading->child()->is($child), 404);
+        $child = $this->activeChild($request);
+        Gate::authorize('view', [$reading, $child]);
 
         if ($reading->finished_at === null) {
             return to_route('readings.show', $reading);
@@ -76,7 +73,7 @@ class ReadingController extends Controller
                 'readingSpeed' => (int) round($reading->reading_speed ?? 0),
                 'wordsToPractise' => $reading->wordsToPractise(),
             ],
-            'nextStory' => $reading->story->next()?->only(['id', 'title']),
+            'nextStory' => $child->suggestedStory(except: $reading->story)?->only(['id', 'title']),
         ]);
     }
 }

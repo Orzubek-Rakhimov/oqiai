@@ -24,7 +24,9 @@ Route::middleware(['auth'])->group(function () {
         ->names('children')
         ->parameters(['children' => 'child']);
     Route::get('parent/children/{child}/microphone', [MicrophoneCheckController::class, 'show'])->name('children.microphone');
-    Route::post('parent/children/{child}/microphone', [MicrophoneCheckController::class, 'store'])->name('children.microphone.store');
+    Route::post('parent/children/{child}/microphone', [MicrophoneCheckController::class, 'store'])
+        ->middleware('throttle:speech-to-text')
+        ->name('children.microphone.store');
 
     Route::middleware(['active-child'])->group(function () {
         Route::get('child', ChildHomeController::class)->name('child.home');
@@ -32,8 +34,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('child/stories/{story}/readings', [ReadingController::class, 'store'])->name('readings.store');
         Route::get('child/readings/{reading}', [ReadingController::class, 'show'])->name('readings.show');
         Route::get('child/readings/{reading}/result', [ReadingController::class, 'result'])->name('readings.result');
-        Route::post('child/readings/{reading}/sentences', [SentenceController::class, 'store'])->name('readings.sentences.store');
-        Route::post('child/readings/{reading}/retries', [RetryController::class, 'store'])->name('readings.retries.store');
+        Route::middleware(['throttle:speech-to-text'])->group(function () {
+            Route::post('child/readings/{reading}/sentences', [SentenceController::class, 'store'])->name('readings.sentences.store');
+            Route::post('child/readings/{reading}/retries', [RetryController::class, 'store'])->name('readings.retries.store');
+        });
         Route::post('child/readings/{reading}/syllable-help', [SyllableHelpController::class, 'store'])->name('readings.syllable-help.store');
     });
 });

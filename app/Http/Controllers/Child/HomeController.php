@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Child;
 
 use App\Http\Controllers\Controller;
-use App\Models\Child;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,8 +18,7 @@ class HomeController extends Controller
      */
     public function __invoke(Request $request): Response
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
+        $child = $this->activeChild($request);
 
         $unfinishedReading = $child->readings()
             ->unfinished()

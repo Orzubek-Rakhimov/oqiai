@@ -1,4 +1,5 @@
-export type StoryLevel = 1 | 2 | 3;
+/** A Story's Level: one of the `levels` the library page receives (Story::LEVELS). */
+export type StoryLevel = number;
 
 export type LibraryStory = {
     id: number;
