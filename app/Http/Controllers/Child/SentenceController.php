@@ -84,6 +84,7 @@ class SentenceController extends Controller
         abort_unless($scored, 409);
 
         $reading->refresh();
+        $reading->finishIfComplete();
 
         return response()->json([
             'status' => 'scored',

@@ -18,9 +18,9 @@ test('the library lists every story with its title, level and minutes, easiest f
             ->component('child/stories')
             ->where('level', null)
             ->where('stories', [
-                ['id' => $ali->id, 'slug' => 'ali-va-mushuk', 'title' => 'Ali va mushuk', 'level' => 1, 'minutes' => 2, 'isNew' => true],
-                ['id' => $qush->id, 'slug' => 'kichik-qush', 'title' => 'Kichik qush', 'level' => 2, 'minutes' => 3, 'isNew' => true],
-                ['id' => $dengiz->id, 'slug' => 'dengiz-boyida', 'title' => "Dengiz bo'yida", 'level' => 3, 'minutes' => 4, 'isNew' => true],
+                ['id' => $ali->id, 'slug' => 'ali-va-mushuk', 'title' => 'Ali va mushuk', 'level' => 1, 'minutes' => 2, 'isNew' => true, 'bestStars' => null],
+                ['id' => $qush->id, 'slug' => 'kichik-qush', 'title' => 'Kichik qush', 'level' => 2, 'minutes' => 3, 'isNew' => true, 'bestStars' => null],
+                ['id' => $dengiz->id, 'slug' => 'dengiz-boyida', 'title' => "Dengiz bo'yida", 'level' => 3, 'minutes' => 4, 'isNew' => true, 'bestStars' => null],
             ]),
         );
 });

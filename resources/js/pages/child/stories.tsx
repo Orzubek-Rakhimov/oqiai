@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Star } from 'lucide-react';
 import ChildTabBar from '@/components/child-tab-bar';
+import StarRating from '@/components/star-rating';
 import { cn } from '@/lib/utils';
 import { store as storeReading } from '@/routes/readings';
 import { index as storiesIndex } from '@/routes/stories';
@@ -18,16 +19,30 @@ const coverColours = ['#24665F', '#7A4E9E', '#B83E22', '#2F5F9E'];
 export default function Stories({
     level,
     stories,
+    starsTotal,
 }: {
     level: StoryLevel | null;
     stories: LibraryStory[];
+    starsTotal: number;
 }) {
     return (
         <>
             <Head title="Hikoyalar" />
 
             <div className="pb-28">
-                <h1 className="font-heading text-3xl font-black">Hikoyalar</h1>
+                <div className="flex items-center justify-between gap-3">
+                    <h1 className="font-heading text-3xl font-black">
+                        Hikoyalar
+                    </h1>
+                    <p
+                        className="inline-flex items-center gap-1.5 rounded-full border-2 bg-card px-3 py-1.5 font-heading text-lg font-black tabular-nums"
+                        aria-label={`Jami yulduzlar: ${starsTotal}`}
+                        data-test="stars-total"
+                    >
+                        <Star className="size-5 fill-star text-star" />
+                        {starsTotal}
+                    </p>
+                </div>
 
                 <nav
                     aria-label="Daraja bo'yicha saralash"
@@ -91,6 +106,12 @@ export default function Stories({
                                             {story.level}-daraja ·{' '}
                                             {story.minutes} daqiqa
                                         </p>
+                                        {story.bestStars !== null && (
+                                            <StarRating
+                                                stars={story.bestStars}
+                                                className="mt-auto gap-0.5"
+                                            />
+                                        )}
                                         {story.isNew && (
                                             <span className="mt-auto self-start rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-primary">
                                                 Yangi

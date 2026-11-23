@@ -7,4 +7,5 @@ export type LibraryStory = {
     level: StoryLevel;
     minutes: number;
     isNew: boolean;
+    bestStars: number | null;
 };

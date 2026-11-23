@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection as SupportCollection;
 
 /**
  * A Child: a reading profile inside a Parent's account. It never logs in.
@@ -49,6 +50,30 @@ class Child extends Model
     public function readings(): HasMany
     {
         return $this->hasMany(Reading::class);
+    }
+
+    /**
+     * Get the Child's best Stars for each Story they have finished, keyed by Story id.
+     *
+     * @return SupportCollection<int, int>
+     */
+    public function bestStarsPerStory(): SupportCollection
+    {
+        return $this->readings()
+            ->finished()
+            ->groupBy('story_id')
+            ->selectRaw('story_id, max(stars) as best_stars')
+            ->toBase()
+            ->pluck('best_stars', 'story_id')
+            ->map(fn (mixed $stars): int => (int) $stars);
+    }
+
+    /**
+     * Get the Child's Stars total: the sum of their best Stars per Story.
+     */
+    public function starsTotal(): int
+    {
+        return $this->bestStarsPerStory()->sum();
     }
 
     /**
