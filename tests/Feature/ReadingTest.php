@@ -5,23 +5,8 @@ use App\Models\Child;
 use App\Models\Reading;
 use App\Models\Story;
 use App\Models\WordResult;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
-
-/**
- * The form the reading screen sends for one sentence: which sentence, the clip and its length.
- *
- * @return array{sentence: int, audio: UploadedFile, duration_ms: int}
- */
-function sentenceClip(int $position, int $durationMs = 1500): array
-{
-    return [
-        'sentence' => $position,
-        'audio' => UploadedFile::fake()->createWithContent('sentence.webm', 'fake-opus-bytes'),
-        'duration_ms' => $durationMs,
-    ];
-}
 
 beforeEach(function () {
     $this->artisan('stories:load', ['--path' => base_path('tests/Fixtures/stories')])->assertSuccessful();
@@ -109,6 +94,7 @@ test('a sentence read correctly marks every word correct and moves on to the nex
                 ['word' => 'uyga', 'correct' => true],
                 ['word' => 'keldi.', 'correct' => true],
             ],
+            'pendingWord' => null,
             'progress' => ['read' => 1, 'total' => 3],
             'nextSentence' => ['position' => 1, 'words' => ['Mushuk', 'o‘yinchoq', 'bilan', "o'ynadi!"]],
         ]);

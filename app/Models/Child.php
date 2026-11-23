@@ -22,6 +22,7 @@ use Illuminate\Support\Collection as SupportCollection;
  * @property string $name
  * @property int $grade
  * @property Avatar $avatar
+ * @property Carbon|null $microphone_checked_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User $parent
@@ -149,6 +150,7 @@ class Child extends Model
         return [
             'grade' => 'integer',
             'avatar' => Avatar::class,
+            'microphone_checked_at' => 'datetime',
         ];
     }
 }

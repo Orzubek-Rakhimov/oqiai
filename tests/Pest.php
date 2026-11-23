@@ -5,6 +5,7 @@ use App\Models\Child;
 use App\Speech\FakeSpeechToText;
 use App\Speech\SpeechToText;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 /*
@@ -50,4 +51,33 @@ function speech(): FakeSpeechToText
     assert($fake instanceof FakeSpeechToText);
 
     return $fake;
+}
+
+/**
+ * The form the reading screen sends for one sentence: which sentence, the clip and its length.
+ *
+ * @return array{sentence: int, audio: UploadedFile, duration_ms: int}
+ */
+function sentenceClip(int $position, int $durationMs = 1500): array
+{
+    return [
+        'sentence' => $position,
+        'audio' => UploadedFile::fake()->createWithContent('sentence.webm', 'fake-opus-bytes'),
+        'duration_ms' => $durationMs,
+    ];
+}
+
+/**
+ * The form the reading screen sends for one retried word: which word of which sentence, the clip and its length.
+ *
+ * @return array{sentence: int, word: int, audio: UploadedFile, duration_ms: int}
+ */
+function wordClip(int $sentence, int $word, int $durationMs = 800): array
+{
+    return [
+        'sentence' => $sentence,
+        'word' => $word,
+        'audio' => UploadedFile::fake()->createWithContent('word.webm', 'fake-opus-bytes'),
+        'duration_ms' => $durationMs,
+    ];
 }

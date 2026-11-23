@@ -23,16 +23,16 @@ test('a new parent is taken to create their first child right after sign-up', fu
 test('a parent creates a child with a name, a grade and an avatar', function () {
     $parent = User::factory()->create();
 
-    $this->actingAs($parent)
+    $response = $this->actingAs($parent)
         ->post(route('children.store'), [
             'name' => 'Ali',
             'grade' => 2,
             'avatar' => 'fox',
         ])
-        ->assertSessionHasNoErrors()
-        ->assertRedirect(route('picker', absolute: false));
+        ->assertSessionHasNoErrors();
 
     $child = $parent->children()->sole();
+    $response->assertRedirect(route('children.microphone', $child, absolute: false));
     expect($child->name)->toBe('Ali')
         ->and($child->grade)->toBe(2)
         ->and($child->avatar->value)->toBe('fox');
@@ -73,8 +73,8 @@ test('a child profile stores nothing beyond name, grade and avatar', function ()
     ])->assertSessionHasNoErrors();
 
     expect($parent->children()->sole()->getAttributes())
-        ->toHaveKeys(['id', 'user_id', 'name', 'grade', 'avatar', 'created_at', 'updated_at'])
-        ->toHaveCount(7);
+        ->toHaveKeys(['id', 'user_id', 'name', 'grade', 'avatar', 'microphone_checked_at', 'created_at', 'updated_at'])
+        ->toHaveCount(8);
 });
 
 test('a parent with children adds another and returns to the parent area', function () {

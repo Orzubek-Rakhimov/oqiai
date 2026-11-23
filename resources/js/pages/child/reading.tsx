@@ -1,6 +1,7 @@
 import { Head, Link, router, useHttp } from '@inertiajs/react';
 import { Loader2, Mic, Pause, Square } from 'lucide-react';
 import { useState } from 'react';
+import { WordPractice } from '@/components/word-practice';
 import { useSentenceRecorder } from '@/hooks/use-sentence-recorder';
 import type { Recording } from '@/hooks/use-sentence-recorder';
 import { cn } from '@/lib/utils';
@@ -8,8 +9,10 @@ import { show as showReading } from '@/routes/readings';
 import { store as storeSentence } from '@/routes/readings/sentences';
 import { index as storiesIndex } from '@/routes/stories';
 import type {
+    PendingWord,
     ReaderSentence,
     ReadingProgress,
+    ReadingStep,
     SentenceResult,
     WordMark,
 } from '@/types';
@@ -19,6 +22,7 @@ type Props = {
     story: { id: number; title: string };
     progress: ReadingProgress;
     sentence: ReaderSentence | null;
+    pendingWord: PendingWord | null;
 };
 
 type SentenceForm = {
@@ -42,8 +46,15 @@ const microphoneMessages = {
     unsupported: "Bu brauzer ovoz yozishni qo'llamaydi.",
 } as const;
 
-export default function Reading({ reading, story, progress, sentence }: Props) {
+export default function Reading({
+    reading,
+    story,
+    progress,
+    sentence,
+    pendingWord,
+}: Props) {
     const [current, setCurrent] = useState(sentence);
+    const [practising, setPractising] = useState(pendingWord);
     const [currentProgress, setCurrentProgress] = useState(progress);
     const [scored, setScored] = useState<Scored | null>(null);
     const [unheard, setUnheard] = useState<keyof typeof unheardMessages | null>(
@@ -113,20 +124,34 @@ export default function Reading({ reading, story, progress, sentence }: Props) {
     }
 
     function nextSentence(): void {
-        if (scored?.nextSentence === null) {
+        if (scored?.pendingWord) {
+            setPractising(scored.pendingWord);
+        } else if (scored?.nextSentence === null) {
             // The last sentence is read: the reading screen hands over to the result.
             router.visit(showReading(reading.id));
 
             return;
+        } else {
+            setCurrent(scored?.nextSentence ?? null);
         }
 
-        setCurrent(scored?.nextSentence ?? null);
         setScored(null);
+    }
+
+    function afterWord(step: ReadingStep): void {
+        setPractising(step.pendingWord);
+        setCurrentProgress(step.progress);
+
+        if (step.pendingWord === null && step.nextSentence === null) {
+            // The last misread word is done: the reading screen hands over to the result.
+            router.visit(showReading(reading.id));
+        } else if (step.pendingWord === null) {
+            setCurrent(step.nextSentence);
+        }
     }
 
     const listening = recorder.state === 'listening';
     const checking = http.processing;
-    const finished = current === null;
     const percent =
         currentProgress.total > 0
             ? Math.round((currentProgress.read / currentProgress.total) * 100)
@@ -171,7 +196,14 @@ export default function Reading({ reading, story, progress, sentence }: Props) {
                     {story.title}
                 </h1>
 
-                {finished ? (
+                {practising ? (
+                    <WordPractice
+                        key={`${practising.sentence}-${practising.position}-${practising.stage}`}
+                        readingId={reading.id}
+                        word={practising}
+                        onDone={afterWord}
+                    />
+                ) : current === null ? (
                     <ToResult readingId={reading.id} />
                 ) : (
                     <>
@@ -227,9 +259,11 @@ export default function Reading({ reading, story, progress, sentence }: Props) {
                                     className="h-15 w-full rounded-full bg-primary text-lg font-bold text-primary-foreground hover:bg-[#8F2F18]"
                                     data-test="next-sentence"
                                 >
-                                    {scored.nextSentence
-                                        ? 'Keyingi gap'
-                                        : 'Tugatish'}
+                                    {scored.pendingWord
+                                        ? 'Davom etish'
+                                        : scored.nextSentence
+                                          ? 'Keyingi gap'
+                                          : 'Tugatish'}
                                 </button>
                             ) : (
                                 <>
