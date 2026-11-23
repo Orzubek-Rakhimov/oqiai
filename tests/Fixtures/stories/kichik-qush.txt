@@ -1,0 +1,7 @@
+title: Kichik qush
+level: 2
+minutes: 3
+---
+Daraxtda kichik qush yashardi. U har kuni ertalab qo'shiq aytardi.
+
+Bir kuni qush uchishni o‘rgandi.

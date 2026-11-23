@@ -1,0 +1,7 @@
+title: Ali va mushuk
+level: 1
+minutes: 2
+---
+Ali uyga keldi. Mushuk o‘yinchoq bilan o'ynadi!
+
+— Salom, mushuk! — dedi Ali.

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -12,14 +12,20 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
+import { picker } from '@/routes';
+import { home as parentHome } from '@/routes/parent';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Bosh sahifa',
-        href: dashboard(),
+        title: 'Farzandlarim',
+        href: parentHome(),
         icon: LayoutGrid,
+    },
+    {
+        title: "Kim o'qiyapti?",
+        href: picker(),
+        icon: Users,
     },
 ];
 
@@ -30,7 +36,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
+                            <Link href={picker()} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
