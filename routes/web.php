@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Child\HomeController as ChildHomeController;
+use App\Http\Controllers\Child\StoryController;
 use App\Http\Controllers\Parent\ChildController;
 use App\Http\Controllers\Parent\HomeController as ParentHomeController;
 use App\Http\Controllers\PickerController;
@@ -20,6 +21,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware(['active-child'])->group(function () {
         Route::get('child', ChildHomeController::class)->name('child.home');
+        Route::get('child/stories', [StoryController::class, 'index'])->name('stories.index');
     });
 });
 

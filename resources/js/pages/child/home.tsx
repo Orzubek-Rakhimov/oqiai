@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { Users } from 'lucide-react';
 import ChildAvatar from '@/components/child-avatar';
+import ChildTabBar from '@/components/child-tab-bar';
 import { picker } from '@/routes';
 import type { Child } from '@/types';
 
@@ -29,6 +30,8 @@ export default function ChildHome({ child }: { child: Child }) {
                     </h1>
                 </div>
             </div>
+
+            <ChildTabBar current="home" />
         </>
     );
 }
