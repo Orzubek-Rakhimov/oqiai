@@ -1,19 +1,9 @@
 <?php
 
-use App\Http\Middleware\EnsureActiveChild;
 use App\Models\Child;
 use App\Models\Reading;
 use App\Models\Story;
 use Inertia\Testing\AssertableInertia as Assert;
-
-/**
- * Log in as the Child's Parent with the Child chosen on the picker.
- */
-function actingAsChild(Child $child): mixed
-{
-    return test()->actingAs($child->parent)
-        ->withSession([EnsureActiveChild::SESSION_KEY => $child->id]);
-}
 
 test('the library lists every story with its title, level and minutes, easiest first', function () {
     $child = Child::factory()->create();

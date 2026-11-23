@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    /*
+    | The speech-to-text driver that hears the Child read. "fake" returns
+    | scripted words (tests, local demos) and needs no service.
+    */
+    'speech_to_text' => [
+        'driver' => env('SPEECH_TO_TEXT_DRIVER', 'fake'),
+    ],
+
 ];
