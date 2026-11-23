@@ -72,6 +72,7 @@ export default defineConfig({
             '.agents/**',
             '.claude/**',
             '.scratch/**',
+            'docs/agents/**',
             '.mcp.json',
             'AGENTS.md',
             'CLAUDE.md',
