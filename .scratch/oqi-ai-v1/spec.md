@@ -242,6 +242,6 @@ The visual reference is the "O'qi AI — mobil ilova prototipi" design canvas (1
   - Gemini transcription is tested both with and without the sentence's text in its prompt. The key number is how often it lets a misread word pass as correct, because a language-model transcriber can "hear" the expected word.
   - Building the Reading flow beyond the fake drivers should wait for its result. Accounts, Child profiles, Story loading and the Parent screen can be built in parallel.
 - **Content.** The 9 launch Stories (3 per Level) must be reviewed by a primary school teacher before release. Generated voice clips must be listened to before testers see them.
-- **Browser microphone.** Recording needs HTTPS, which Laravel Cloud provides. Test early on Android Chrome and iPhone Safari.
+- **Hosting.** The app runs on the owner's own VPS through Coolify (Docker Compose, a separate PostgreSQL resource, deploys triggered from GitHub Actions), the same way as the owner's ITPlaza CRM. Coolify's proxy provides the HTTPS that browser recording needs. Test early on Android Chrome and iPhone Safari.
 - **Terms** follow GLOSSARY.md: Parent, Child, Grade, Story, Level, Reading, Syllable help, Accuracy, Stars, Reading speed, Streak, Hard word.
 - **Decisions** follow ADR-0001 (web app instead of native) and ADR-0002 (children's audio is not stored).
