@@ -1,0 +1,7 @@
+title: Kutubxonada
+level: 1
+minutes: 1
+---
+Ali kutubxonaga bordi. U yerda qiziqarli kitob oldi. Kitobda katta fil bor edi.
+
+Ali kitobni uyga olib keldi. Kechqurun u onasiga kitob o'qib berdi.
