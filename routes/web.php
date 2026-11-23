@@ -29,6 +29,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('child/stories', [StoryController::class, 'index'])->name('stories.index');
         Route::post('child/stories/{story}/readings', [ReadingController::class, 'store'])->name('readings.store');
         Route::get('child/readings/{reading}', [ReadingController::class, 'show'])->name('readings.show');
+        Route::get('child/readings/{reading}/result', [ReadingController::class, 'result'])->name('readings.result');
         Route::post('child/readings/{reading}/sentences', [SentenceController::class, 'store'])->name('readings.sentences.store');
     });
 });

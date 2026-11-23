@@ -24,3 +24,12 @@ export type SentenceResult =
           status: 'unheard';
           reason: 'nothing_heard' | 'service_failed';
       };
+
+export type StarCount = 1 | 2 | 3;
+
+export type ReadingResult = {
+    stars: StarCount;
+    accuracy: number;
+    readingSpeed: number;
+    wordsToPractise: string[];
+};

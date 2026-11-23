@@ -214,7 +214,7 @@ test('reading time adds up over the sentences', function () {
     expect($reading->refresh()->reading_time_ms)->toBe(5500);
 });
 
-test('after the last sentence there is no next sentence', function () {
+test('after the last sentence there is no next sentence and the reading screen gives way to the result', function () {
     $reading = Reading::factory()->for($this->child)->for($this->story)->create(['next_sentence_position' => 2]);
 
     actingAsChild($this->child)
@@ -225,7 +225,7 @@ test('after the last sentence there is no next sentence', function () {
 
     actingAsChild($this->child)
         ->get(route('readings.show', $reading))
-        ->assertInertia(fn (Assert $page) => $page->where('sentence', null)->where('progress', ['read' => 3, 'total' => 3]));
+        ->assertRedirect(route('readings.result', $reading));
 });
 
 test('a clip for a sentence other than the next one is refused', function () {

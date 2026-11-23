@@ -23,7 +23,7 @@ class StoryController extends Controller
         $child = $request->attributes->get(Child::class);
         $level = in_array($request->integer('level'), [1, 2, 3], true) ? $request->integer('level') : null;
 
-        $finishedStoryIds = $child->readings()->finished()->pluck('story_id')->flip();
+        $bestStars = $child->bestStarsPerStory();
 
         $stories = Story::query()
             ->when($level, fn ($query) => $query->where('level', $level))
@@ -36,12 +36,14 @@ class StoryController extends Controller
                 'title' => $story->title,
                 'level' => $story->level,
                 'minutes' => $story->minutes,
-                'isNew' => ! $finishedStoryIds->has($story->id),
+                'isNew' => ! $bestStars->has($story->id),
+                'bestStars' => $bestStars->get($story->id),
             ]);
 
         return Inertia::render('child/stories', [
             'level' => $level,
             'stories' => $stories,
+            'starsTotal' => $bestStars->sum(),
         ]);
     }
 }
