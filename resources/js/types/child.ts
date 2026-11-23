@@ -6,3 +6,7 @@ export type Child = {
     grade: number;
     avatar: AvatarKey;
 };
+
+export type MicrophoneCheckResult =
+    | { status: 'passed' }
+    | { status: 'unheard'; reason: 'nothing_heard' | 'service_failed' };

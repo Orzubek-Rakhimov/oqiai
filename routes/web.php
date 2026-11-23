@@ -6,6 +6,7 @@ use App\Http\Controllers\Child\SentenceController;
 use App\Http\Controllers\Child\StoryController;
 use App\Http\Controllers\Parent\ChildController;
 use App\Http\Controllers\Parent\HomeController as ParentHomeController;
+use App\Http\Controllers\Parent\MicrophoneCheckController;
 use App\Http\Controllers\PickerController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,8 @@ Route::middleware(['auth'])->group(function () {
         ->except(['index', 'show'])
         ->names('children')
         ->parameters(['children' => 'child']);
+    Route::get('parent/children/{child}/microphone', [MicrophoneCheckController::class, 'show'])->name('children.microphone');
+    Route::post('parent/children/{child}/microphone', [MicrophoneCheckController::class, 'store'])->name('children.microphone.store');
 
     Route::middleware(['active-child'])->group(function () {
         Route::get('child', ChildHomeController::class)->name('child.home');

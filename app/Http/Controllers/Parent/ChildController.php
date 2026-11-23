@@ -29,17 +29,17 @@ class ChildController extends Controller
     }
 
     /**
-     * Store a new Child for the Parent.
+     * Store a new Child for the Parent. The first one goes on to the microphone check.
      */
     public function store(ChildRequest $request): RedirectResponse
     {
         $isFirstChild = $request->user()->children()->doesntExist();
 
-        $request->user()->children()->create($request->validated());
+        $child = $request->user()->children()->create($request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Child added.')]);
 
-        return $isFirstChild ? to_route('picker') : to_route('parent.home');
+        return $isFirstChild ? to_route('children.microphone', $child) : to_route('parent.home');
     }
 
     /**
@@ -52,6 +52,7 @@ class ChildController extends Controller
         return Inertia::render('parent/children/edit', [
             'child' => $child->only(['id', 'name', 'grade', 'avatar']),
             'avatars' => Avatar::keys(),
+            'microphoneChecked' => $child->microphone_checked_at !== null,
         ]);
     }
 
