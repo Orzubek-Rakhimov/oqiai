@@ -73,7 +73,15 @@ return [
     |
     */
 
-    'home' => '/dashboard',
+    'home' => '/picker',
+
+    /*
+    | A new Parent goes straight on to create their first Child.
+    */
+
+    'redirects' => [
+        'register' => '/parent/children/create',
+    ],
 
     /*
     |--------------------------------------------------------------------------

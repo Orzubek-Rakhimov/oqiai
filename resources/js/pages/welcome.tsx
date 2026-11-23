@@ -1,7 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { Button } from '@/components/ui/button';
-import { dashboard, login, register } from '@/routes';
+import { login, picker, register } from '@/routes';
 
 export default function Welcome() {
     const { auth } = usePage().props;
@@ -28,7 +28,7 @@ export default function Welcome() {
                     <div className="flex w-full flex-col gap-3">
                         {auth.user ? (
                             <Button size="lg" className="w-full" asChild>
-                                <Link href={dashboard()}>Davom etish</Link>
+                                <Link href={picker()}>Davom etish</Link>
                             </Button>
                         ) : (
                             <>
