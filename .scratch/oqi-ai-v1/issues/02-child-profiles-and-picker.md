@@ -1,0 +1,16 @@
+# 02: Child profiles and the "Who is reading?" picker
+
+**What to build:** Right after sign-up, the Parent is asked to create their first Child (name, Grade 1–4, an avatar from a fixed set). They can add more Children and edit or delete them. After login the app opens on the "Who is reading?" picker. Choosing a Child sets the active Child for the session and opens a basic Child home. A Parent button opens the Parent area without a PIN. See spec § Child selection, § Domain model.
+
+**Blocked by:** 01
+
+**Status:** ready-for-agent
+
+- [ ] A new Parent is taken to "create your first Child" after sign-up.
+- [ ] A Child has only name, Grade (1–4) and avatar (one of the fixed keys). Validation errors are shown in Uzbek.
+- [ ] The Parent can add, edit and delete Children.
+- [ ] After login the Parent lands on the picker, which shows each Child's avatar and name plus a Parent button.
+- [ ] Choosing a Child sets the active Child and opens a basic Child home with a way back to the picker.
+- [ ] Child screens refuse access without an active Child that belongs to the logged-in Parent.
+- [ ] A Parent can never see, edit, delete or choose another Parent's Child.
+- [ ] Factories exist for Child (and the Parent account). HTTP feature tests cover all of the above.
