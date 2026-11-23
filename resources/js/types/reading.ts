@@ -8,6 +8,12 @@ export type ReadingProgress = {
     total: number;
 };
 
+export type ContinueReading = {
+    id: number;
+    story: { id: number; title: string };
+    progress: ReadingProgress;
+};
+
 export type WordMark = {
     word: string;
     correct: boolean;
