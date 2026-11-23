@@ -6,7 +6,8 @@ trait AudioClipValidationRules
 {
     /**
      * The content types a recording made in a browser is detected as on the
-     * server: WebM or Ogg (Opus), MP4 (AAC, as Safari records), WAV and MPEG.
+     * server. The recorder sends WAV (16 kHz mono); WebM or Ogg (Opus), MP4
+     * (AAC) and MPEG, as older recorders sent, are still taken.
      * An audio-only WebM or MP4 file is detected as video/webm or video/mp4.
      *
      * @var list<string>

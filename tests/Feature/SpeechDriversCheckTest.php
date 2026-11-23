@@ -1,5 +1,7 @@
 <?php
 
+use App\Speech\AishaSpeechToText;
+use App\Speech\AishaTextToSpeech;
 use App\Speech\ChirpSpeechToText;
 use App\Speech\FakeSpeechToText;
 use App\Speech\FakeTextToSpeech;
@@ -17,6 +19,7 @@ function speechSettings(array $settings): void
 {
     config([
         'services.gemini.api_key' => 'test-gemini-key',
+        'services.aisha.api_key' => 'test-aisha-key',
         'services.speech_to_text.chirp.credentials' => __FILE__,
         ...$settings,
     ]);
@@ -39,6 +42,7 @@ test('the drivers are chosen by the settings', function (string $listening, stri
     'the fakes' => ['fake', 'fake', FakeSpeechToText::class, FakeTextToSpeech::class],
     'Gemini' => ['gemini', 'gemini', GeminiSpeechToText::class, GeminiTextToSpeech::class],
     'Chirp to listen' => ['chirp', 'gemini', ChirpSpeechToText::class, GeminiTextToSpeech::class],
+    'Aisha' => ['aisha', 'aisha', AishaSpeechToText::class, AishaTextToSpeech::class],
 ]);
 
 test('production starts with the real drivers', function (string $listening) {
@@ -46,7 +50,14 @@ test('production starts with the real drivers', function (string $listening) {
     speechSettings(['services.speech_to_text.driver' => $listening, 'services.text_to_speech.driver' => 'gemini']);
 
     $this->artisan('speech:check')->assertSuccessful();
-})->with(['gemini', 'chirp']);
+})->with(['gemini', 'chirp', 'aisha']);
+
+test('production starts with the Aisha voice', function () {
+    inProduction();
+    speechSettings(['services.speech_to_text.driver' => 'gemini', 'services.text_to_speech.driver' => 'aisha']);
+
+    $this->artisan('speech:check')->assertSuccessful();
+});
 
 test('production refuses to start with a fake driver', function (string $listening, string $voice) {
     inProduction();
@@ -80,6 +91,8 @@ test('a real driver without its settings refuses to start', function (array $set
         ->assertFailed();
 })->with([
     'no Gemini key' => [['services.gemini.api_key' => ''], 'GEMINI_API_KEY'],
+    'no Aisha key to listen' => [['services.speech_to_text.driver' => 'aisha', 'services.aisha.api_key' => ''], 'AISHA_API_KEY'],
+    'no Aisha key for the voice' => [['services.text_to_speech.driver' => 'aisha', 'services.aisha.api_key' => ''], 'AISHA_API_KEY'],
     'no Chirp key file' => [['services.speech_to_text.driver' => 'chirp', 'services.speech_to_text.chirp.credentials' => __DIR__.'/missing-key-file.json'], 'GOOGLE_APPLICATION_CREDENTIALS'],
     'an unknown driver' => [['services.speech_to_text.driver' => 'whisper'], 'whisper'],
 ]);

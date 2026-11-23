@@ -32,16 +32,4 @@ final class GoogleSpeech
 
         return (float) $matches[1];
     }
-
-    /**
-     * Split a transcript into its words, in order.
-     *
-     * @return list<RecognisedWord>
-     */
-    public static function wordsOf(string $transcript): array
-    {
-        $words = preg_split('/\s+/u', trim($transcript), flags: PREG_SPLIT_NO_EMPTY) ?: [];
-
-        return array_map(fn (string $word): RecognisedWord => new RecognisedWord($word), $words);
-    }
 }

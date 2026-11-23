@@ -21,6 +21,8 @@ final readonly class GeminiSpeechToText implements SpeechToText
         'audio/x-m4a' => 'audio/m4a',
         'video/webm' => 'audio/webm',
         'audio/x-wav' => 'audio/wav',
+        'audio/wave' => 'audio/wav',
+        'audio/vnd.wave' => 'audio/wav',
     ];
 
     private GeminiInteractions $interactions;
@@ -64,7 +66,7 @@ final readonly class GeminiSpeechToText implements SpeechToText
             }
         }
 
-        return $words !== [] ? $words : GoogleSpeech::wordsOf($transcript);
+        return $words !== [] ? $words : RecognisedWord::inTranscript($transcript);
     }
 
     /**

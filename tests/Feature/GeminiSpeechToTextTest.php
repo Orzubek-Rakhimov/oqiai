@@ -73,6 +73,14 @@ test('it names an iPhone clip as m4a, the name the service knows', function () {
     Http::assertSent(fn (Request $request): bool => $request['input'][0]['mime_type'] === 'audio/m4a');
 });
 
+test('it names the WAV the browser records as audio/wav, however the content is detected', function (string $mimeType) {
+    Http::fake([GEMINI_INTERACTIONS_URL => Http::response(transcription('Ali'))]);
+
+    geminiListener()->transcribe('RIFF-clip-bytes', $mimeType, 'Ali', 'uz');
+
+    Http::assertSent(fn (Request $request): bool => $request['input'][0]['mime_type'] === 'audio/wav');
+})->with(['audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave']);
+
 test('it hears the words of the word timings in order, with their times', function () {
     Http::fake([GEMINI_INTERACTIONS_URL => Http::response(transcription('Ali uyga', [
         ['type' => 'word_info', 'text' => 'Ali', 'start_offset' => '0.100s', 'end_offset' => '0.400s'],
