@@ -1,20 +1,20 @@
-# Launch Stories: draft, awaiting teacher review
+# Launch Stories: reviewed and approved
 
-**Status: DRAFT.** All 9 Story files in this folder are drafts. They must be reviewed and approved by a primary school teacher before release (see the spec, "Content"). The Story file format has no comment syntax, and an unknown header line stops the file from loading, so the draft status is kept here, not in the files.
+**Status: APPROVED.** The owner reviewed all 9 Stories on 2026-11-23 and approved them for release, including the syllable splits and the ng convention below. The Story file format has no comment syntax, and an unknown header line stops the file from loading, so the draft status is kept here, not in the files.
 
 The Stories were written by an AI assistant that is not a native Uzbek speaker. Please check grammar, spelling, naturalness and age fit, not only the syllables.
 
-| File                     | Title                 | Level | Minutes | Sentences | Teacher approved |
-| ------------------------ | --------------------- | ----- | ------- | --------- | ---------------- |
-| kutubxonada.txt          | Kutubxonada           | 1     | 1       | 5         | [ ]              |
-| mushukcha.txt            | Oq mushukcha          | 1     | 1       | 5         | [ ]              |
-| olma-daraxti.txt         | Olma daraxti          | 1     | 2       | 6         | [ ]              |
-| bozorda.txt              | Bozorda               | 2     | 2       | 8         | [ ]              |
-| yangi-dost.txt           | Yangi do'st           | 2     | 3       | 9         | [ ]              |
-| yomgirdagi-kuchukcha.txt | Yomg'irdagi kuchukcha | 2     | 3       | 8         | [ ]              |
-| mahalla-hashari.txt      | Mahalladagi hashar    | 3     | 4       | 10        | [ ]              |
-| qishloqda-tatil.txt      | Qishloqdagi ta'til    | 3     | 4       | 10        | [ ]              |
-| laylaklar.txt            | Laylaklar qaytdi      | 3     | 5       | 10        | [ ]              |
+| File                     | Title                 | Level | Minutes | Sentences | Approved |
+| ------------------------ | --------------------- | ----- | ------- | --------- | -------- |
+| kutubxonada.txt          | Kutubxonada           | 1     | 1       | 5         | [x]      |
+| mushukcha.txt            | Oq mushukcha          | 1     | 1       | 5         | [x]      |
+| olma-daraxti.txt         | Olma daraxti          | 1     | 2       | 6         | [x]      |
+| bozorda.txt              | Bozorda               | 2     | 2       | 8         | [x]      |
+| yangi-dost.txt           | Yangi do'st           | 2     | 3       | 9         | [x]      |
+| yomgirdagi-kuchukcha.txt | Yomg'irdagi kuchukcha | 2     | 3       | 8         | [x]      |
+| mahalla-hashari.txt      | Mahalladagi hashar    | 3     | 4       | 10        | [x]      |
+| qishloqda-tatil.txt      | Qishloqdagi ta'til    | 3     | 4       | 10        | [x]      |
+| laylaklar.txt            | Laylaklar qaytdi      | 3     | 5       | 10        | [x]      |
 
 The minutes are estimates for a slow early reader. Please adjust them if they look wrong.
 
