@@ -22,15 +22,18 @@ use Illuminate\Support\Carbon;
  * @property int $story_id
  * @property int $next_sentence_position The position of the next sentence to read; equal to the sentence count once all are read.
  * @property int $reading_time_ms The accumulated length of the Child's recordings, without Syllable help.
+ * @property list<int>|null $pending_retry_word_ids The misread words of the last sentence still awaiting their retry, in reading order.
+ * @property int|null $syllable_help_word_id The word the Child is in Syllable help for, misread on its retry too.
  * @property Carbon $started_at
  * @property Carbon|null $finished_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Child $child
  * @property-read Story $story
+ * @property-read Word|null $syllableHelpWord
  * @property-read Collection<int, WordResult> $wordResults
  */
-#[Fillable(['started_at', 'finished_at', 'next_sentence_position', 'reading_time_ms'])]
+#[Fillable(['started_at', 'finished_at', 'next_sentence_position', 'reading_time_ms', 'pending_retry_word_ids', 'syllable_help_word_id'])]
 class Reading extends Model
 {
     /** @use HasFactory<ReadingFactory> */
@@ -65,6 +68,68 @@ class Reading extends Model
     {
         return $this->hasMany(WordResult::class);
     }
+
+    /**
+     * Get the word the Child is in Syllable help for.
+     *
+     * @return BelongsTo<Word, $this>
+     */
+    public function syllableHelpWord(): BelongsTo
+    {
+        return $this->belongsTo(Word::class, 'syllable_help_word_id');
+    }
+
+    /**
+     * Get the misread word the Child deals with before the next sentence:
+     * the one in Syllable help, or else the first one awaiting its retry.
+     */
+    public function pendingWord(): ?Word
+    {
+        if ($this->syllable_help_word_id !== null) {
+            return $this->syllableHelpWord;
+        }
+
+        $wordId = $this->pending_retry_word_ids[0] ?? null;
+
+        return $wordId === null ? null : Word::query()->with('sentence')->find($wordId);
+    }
+
+    /**
+     * Determine whether a misread word of an already-read sentence still awaits its retry or Syllable help.
+     */
+    public function hasPendingRetries(): bool
+    {
+        return $this->syllable_help_word_id !== null || ($this->pending_retry_word_ids ?? []) !== [];
+    }
+
+    /**
+     * Get the pending word as the reading screen shows it, or null when there is none.
+     *
+     * @return array{stage: 'retry'|'syllable_help', sentence: int, position: int, text: string, syllables: list<string>, clips: array{syllables: string|null, word: string|null}}|null
+     */
+    public function pendingWordForReader(): ?array
+    {
+        $word = $this->pendingWord();
+
+        if ($word === null) {
+            return null;
+        }
+
+        return [
+            'stage' => $this->syllable_help_word_id === null ? 'retry' : 'syllable_help',
+            'sentence' => $word->sentence->position,
+            'position' => $word->position,
+            'text' => $word->text,
+            'syllables' => $word->syllables,
+            'clips' => ['syllables' => null, 'word' => null],
+        ];
+    }
+
+    /**
+     * Finish the Reading once every sentence is scored and no retries are pending.
+     * Ticket 05 implements it; until then it does nothing.
+     */
+    public function finishIfComplete(): void {}
 
     /**
      * Get the sentence the Child reads next, or null once every sentence is read.
@@ -121,6 +186,7 @@ class Reading extends Model
             'finished_at' => 'datetime',
             'next_sentence_position' => 'integer',
             'reading_time_ms' => 'integer',
+            'pending_retry_word_ids' => 'array',
         ];
     }
 }

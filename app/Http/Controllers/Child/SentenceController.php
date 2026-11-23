@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers\Child;
 
+use App\Concerns\HearsTheChild;
 use App\Enums\WordOutcome;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Child\SentenceRequest;
 use App\Models\Child;
 use App\Models\Reading;
 use App\Models\Word;
-use App\Speech\RecognisedWord;
 use App\Speech\SpeechToText;
 use App\Speech\SpeechToTextFailed;
-use App\Stories\UzbekWord;
 use App\Stories\WordMatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -23,8 +22,11 @@ use Illuminate\Support\Facades\DB;
  */
 class SentenceController extends Controller
 {
+    use HearsTheChild;
+
     /**
-     * Score the Reading's next sentence.
+     * Score the Reading's next sentence. It is offered only once the previous
+     * sentence's misread words have had their retry or Syllable help.
      */
     public function store(SentenceRequest $request, Reading $reading, SpeechToText $speechToText): JsonResponse
     {
@@ -34,21 +36,18 @@ class SentenceController extends Controller
 
         $position = $request->integer('sentence');
         abort_if($reading->finished_at !== null || $position !== $reading->next_sentence_position, 409);
+        abort_if($reading->hasPendingRetries(), 409);
 
         $sentence = $reading->nextSentence();
         abort_if($sentence === null, 409);
 
-        $audio = $request->file('audio');
-
         try {
-            $recognised = $speechToText->transcribe((string) $audio->get(), $audio->getClientMimeType(), $sentence->text, 'uz');
+            $heard = $this->hear($speechToText, $request->file('audio'), $sentence->text);
         } catch (SpeechToTextFailed $failure) {
             report($failure);
 
             return $this->unheard('service_failed');
         }
-
-        $heard = $this->normalizedWords($recognised);
 
         if ($heard === []) {
             return $this->unheard('nothing_heard');
@@ -63,6 +62,9 @@ class SentenceController extends Controller
                 ->where('next_sentence_position', $position)
                 ->increment('reading_time_ms', $request->integer('duration_ms'), [
                     'next_sentence_position' => $position + 1,
+                    'pending_retry_word_ids' => json_encode(array_values(
+                        $words->reject(fn (Word $word, int $index): bool => $marks[$index])->modelKeys(),
+                    )),
                 ]);
 
             if ($advanced === 0) {
@@ -84,6 +86,7 @@ class SentenceController extends Controller
         abort_unless($scored, 409);
 
         $reading->refresh();
+        $reading->finishIfComplete();
 
         return response()->json([
             'status' => 'scored',
@@ -91,41 +94,9 @@ class SentenceController extends Controller
                 'word' => $word->text,
                 'correct' => $marks[$index],
             ])->values()->all(),
+            'pendingWord' => $reading->pendingWordForReader(),
             'progress' => $reading->progress(),
             'nextSentence' => $reading->nextSentence()?->toReaderArray(),
         ]);
-    }
-
-    /**
-     * Get the normalised words that were said, leaving out anything that is not a word.
-     *
-     * @param  list<RecognisedWord>  $recognised
-     * @return list<string>
-     */
-    private function normalizedWords(array $recognised): array
-    {
-        $words = [];
-
-        foreach ($recognised as $word) {
-            foreach (preg_split('/\s+/u', $word->text, flags: PREG_SPLIT_NO_EMPTY) ?: [] as $part) {
-                $normalized = UzbekWord::normalize($part);
-
-                if ($normalized !== '') {
-                    $words[] = $normalized;
-                }
-            }
-        }
-
-        return $words;
-    }
-
-    /**
-     * Tell the Child to read the sentence again. Nothing is recorded.
-     *
-     * @param  'nothing_heard'|'service_failed'  $reason
-     */
-    private function unheard(string $reason): JsonResponse
-    {
-        return response()->json(['status' => 'unheard', 'reason' => $reason]);
     }
 }
