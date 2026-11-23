@@ -6,7 +6,6 @@ use App\Concerns\HearsTheChild;
 use App\Enums\WordOutcome;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Child\RetryRequest;
-use App\Models\Child;
 use App\Models\Reading;
 use App\Speech\SpeechToText;
 use App\Speech\SpeechToTextFailed;
@@ -14,6 +13,7 @@ use App\Stories\WordMatcher;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Scores the one retry a misread word gets, read on its own. Correct is
@@ -30,9 +30,7 @@ class RetryController extends Controller
      */
     public function store(RetryRequest $request, Reading $reading, SpeechToText $speechToText): JsonResponse
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
-        abort_unless($reading->child()->is($child), 404);
+        Gate::authorize('update', [$reading, $this->activeChild($request)]);
         abort_if($reading->finished_at !== null || $reading->syllable_help_word_id !== null, 409);
 
         $word = $reading->pendingWord();

@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Child;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Child\SyllableHelpRequest;
-use App\Models\Child;
 use App\Models\Reading;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Ends Syllable help once the Child has read the word once more. That read
@@ -20,9 +20,7 @@ class SyllableHelpController extends Controller
      */
     public function store(SyllableHelpRequest $request, Reading $reading): JsonResponse
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
-        abort_unless($reading->child()->is($child), 404);
+        Gate::authorize('update', [$reading, $this->activeChild($request)]);
 
         $word = $reading->syllableHelpWord;
         abort_if(

@@ -6,7 +6,6 @@ use App\Concerns\HearsTheChild;
 use App\Enums\WordOutcome;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Child\SentenceRequest;
-use App\Models\Child;
 use App\Models\Reading;
 use App\Models\Word;
 use App\Speech\SpeechToText;
@@ -14,6 +13,7 @@ use App\Speech\SpeechToTextFailed;
 use App\Stories\WordMatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Scores one sentence read aloud: asks speech-to-text what the Child said,
@@ -30,9 +30,7 @@ class SentenceController extends Controller
      */
     public function store(SentenceRequest $request, Reading $reading, SpeechToText $speechToText): JsonResponse
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
-        abort_unless($reading->child()->is($child), 404);
+        Gate::authorize('update', [$reading, $this->activeChild($request)]);
 
         $position = $request->integer('sentence');
         abort_if($reading->finished_at !== null || $position !== $reading->next_sentence_position, 409);

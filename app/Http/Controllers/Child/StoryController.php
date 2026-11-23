@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Child;
 
 use App\Http\Controllers\Controller;
-use App\Models\Child;
 use App\Models\Story;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,8 +18,7 @@ class StoryController extends Controller
      */
     public function index(Request $request): Response
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
+        $child = $this->activeChild($request);
         $level = in_array($request->integer('level'), [1, 2, 3], true) ? $request->integer('level') : null;
 
         $bestStars = $child->bestStarsPerStory();

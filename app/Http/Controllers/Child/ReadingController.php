@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Child;
 
 use App\Http\Controllers\Controller;
-use App\Models\Child;
 use App\Models\Reading;
 use App\Models\Story;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,8 +21,7 @@ class ReadingController extends Controller
      */
     public function store(Request $request, Story $story): RedirectResponse
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
+        $child = $this->activeChild($request);
 
         $reading = $child->readings()->unfinished()->whereBelongsTo($story)->first()
             ?? $child->readings()->make(['started_at' => now()])->story()->associate($story);
@@ -38,9 +37,7 @@ class ReadingController extends Controller
      */
     public function show(Request $request, Reading $reading): Response|RedirectResponse
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
-        abort_unless($reading->child()->is($child), 404);
+        Gate::authorize('view', [$reading, $this->activeChild($request)]);
 
         if ($reading->finished_at !== null) {
             return to_route('readings.result', $reading);
@@ -60,9 +57,7 @@ class ReadingController extends Controller
      */
     public function result(Request $request, Reading $reading): Response|RedirectResponse
     {
-        /** @var Child $child */
-        $child = $request->attributes->get(Child::class);
-        abort_unless($reading->child()->is($child), 404);
+        Gate::authorize('view', [$reading, $this->activeChild($request)]);
 
         if ($reading->finished_at === null) {
             return to_route('readings.show', $reading);
