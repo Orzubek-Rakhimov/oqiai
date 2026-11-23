@@ -4,13 +4,13 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Sign-up takes name, phone number and password. The Parent is logged in afterwards.
-- [ ] Phone numbers typed with or without +998, spaces or dashes are stored as +998 followed by 9 digits.
-- [ ] A phone number that is already registered is rejected with a clear Uzbek message.
-- [ ] Login works with the phone number in any of those input forms, plus the password.
-- [ ] Email verification, password reset, two-factor login and passkeys are turned off, and their screens and routes are gone.
-- [ ] Profile settings edit name and phone number (with the same normalisation and uniqueness). The password change still works.
-- [ ] Auth and settings screens are in Uzbek and use the theme tokens. Layouts work at phone width.
-- [ ] HTTP feature tests (Pest) cover sign-up, normalisation, duplicates, login, and the disabled features. Starter-kit tests for removed features are updated or removed, with the change explained in the PR.
+- [x] Sign-up takes name, phone number and password. The Parent is logged in afterwards.
+- [x] Phone numbers typed with or without +998, spaces or dashes are stored as +998 followed by 9 digits.
+- [x] A phone number that is already registered is rejected with a clear Uzbek message.
+- [x] Login works with the phone number in any of those input forms, plus the password.
+- [x] Email verification, password reset, two-factor login and passkeys are turned off, and their screens and routes are gone.
+- [x] Profile settings edit name and phone number (with the same normalisation and uniqueness). The password change still works.
+- [x] Auth and settings screens are in Uzbek and use the theme tokens. Layouts work at phone width.
+- [x] HTTP feature tests (Pest) cover sign-up, normalisation, duplicates, login, and the disabled features. Starter-kit tests for removed features are updated or removed, with the change explained in the PR.

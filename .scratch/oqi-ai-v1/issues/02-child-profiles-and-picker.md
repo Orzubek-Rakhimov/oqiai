@@ -4,13 +4,13 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A new Parent is taken to "create your first Child" after sign-up.
-- [ ] A Child has only name, Grade (1–4) and avatar (one of the fixed keys). Validation errors are shown in Uzbek.
-- [ ] The Parent can add, edit and delete Children.
-- [ ] After login the Parent lands on the picker, which shows each Child's avatar and name plus a Parent button.
-- [ ] Choosing a Child sets the active Child and opens a basic Child home with a way back to the picker.
-- [ ] Child screens refuse access without an active Child that belongs to the logged-in Parent.
-- [ ] A Parent can never see, edit, delete or choose another Parent's Child.
-- [ ] Factories exist for Child (and the Parent account). HTTP feature tests cover all of the above.
+- [x] A new Parent is taken to "create your first Child" after sign-up.
+- [x] A Child has only name, Grade (1–4) and avatar (one of the fixed keys). Validation errors are shown in Uzbek.
+- [x] The Parent can add, edit and delete Children.
+- [x] After login the Parent lands on the picker, which shows each Child's avatar and name plus a Parent button.
+- [x] Choosing a Child sets the active Child and opens a basic Child home with a way back to the picker.
+- [x] Child screens refuse access without an active Child that belongs to the logged-in Parent.
+- [x] A Parent can never see, edit, delete or choose another Parent's Child.
+- [x] Factories exist for Child (and the Parent account). HTTP feature tests cover all of the above.
