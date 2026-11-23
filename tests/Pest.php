@@ -3,7 +3,9 @@
 use App\Http\Middleware\EnsureActiveChild;
 use App\Models\Child;
 use App\Speech\FakeSpeechToText;
+use App\Speech\FakeTextToSpeech;
 use App\Speech\SpeechToText;
+use App\Speech\TextToSpeech;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -49,6 +51,18 @@ function speech(): FakeSpeechToText
     $fake = app(SpeechToText::class);
 
     assert($fake instanceof FakeSpeechToText);
+
+    return $fake;
+}
+
+/**
+ * Get the text-to-speech fake bound for every test, to see what it was asked to read or make it fail.
+ */
+function voice(): FakeTextToSpeech
+{
+    $fake = app(TextToSpeech::class);
+
+    assert($fake instanceof FakeTextToSpeech);
 
     return $fake;
 }
