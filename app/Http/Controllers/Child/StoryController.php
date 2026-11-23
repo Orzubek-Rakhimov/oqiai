@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Child;
 
 use App\Http\Controllers\Controller;
 use App\Models\Story;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,9 +25,8 @@ class StoryController extends Controller
         $bestStars = $child->bestStarsPerStory();
 
         $stories = Story::query()
-            ->when($level, fn ($query) => $query->where('level', $level))
-            ->orderBy('level')
-            ->orderBy('title')
+            ->when($level, fn (Builder $query, int $level) => $query->where('level', $level))
+            ->inLibraryOrder()
             ->get()
             ->map(fn (Story $story): array => [
                 'id' => $story->id,

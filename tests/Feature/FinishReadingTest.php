@@ -154,17 +154,28 @@ test("another child's result cannot be seen", function () {
     actingAsChild($this->child)->get(route('readings.result', $siblingsReading))->assertNotFound();
 });
 
-test('the result offers the next story in library order (level, then title), or none after the last one', function () {
+test("the result offers the child's suggested story next, as the home screen does, or none once every story is finished", function () {
     $this->artisan('stories:load', ['--path' => base_path('tests/Fixtures/stories')])->assertSuccessful();
+    $this->child->update(['grade' => 2]);
+    $ali = Story::firstWhere('slug', 'ali-va-mushuk');
     $kichikQush = Story::firstWhere('slug', 'kichik-qush');
     $dengiz = Story::firstWhere('slug', 'dengiz-boyida');
+    $finished = fn (Story $story): Reading => Reading::factory()->for($this->child)->for($story)->finished()->create();
 
-    $first = Reading::factory()->for($this->child)->for($this->story)->finished()->create(['stars' => 2, 'accuracy' => 0.9, 'reading_speed' => 30]);
-    $last = Reading::factory()->for($this->child)->for($dengiz)->finished()->create(['stars' => 2, 'accuracy' => 0.9, 'reading_speed' => 30]);
+    $first = $finished($this->story);
 
     actingAsChild($this->child)
         ->get(route('readings.result', $first))
         ->assertInertia(fn (Assert $page) => $page->where('nextStory', ['id' => $kichikQush->id, 'title' => 'Kichik qush']));
+
+    $atTheGradesLevel = $finished($kichikQush);
+
+    actingAsChild($this->child)
+        ->get(route('readings.result', $atTheGradesLevel))
+        ->assertInertia(fn (Assert $page) => $page->where('nextStory', ['id' => $ali->id, 'title' => 'Ali va mushuk']));
+
+    $finished($ali);
+    $last = $finished($dengiz);
 
     actingAsChild($this->child)
         ->get(route('readings.result', $last))

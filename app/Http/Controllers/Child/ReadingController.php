@@ -57,7 +57,8 @@ class ReadingController extends Controller
      */
     public function result(Request $request, Reading $reading): Response|RedirectResponse
     {
-        Gate::authorize('view', [$reading, $this->activeChild($request)]);
+        $child = $this->activeChild($request);
+        Gate::authorize('view', [$reading, $child]);
 
         if ($reading->finished_at === null) {
             return to_route('readings.show', $reading);
@@ -71,7 +72,7 @@ class ReadingController extends Controller
                 'readingSpeed' => (int) round($reading->reading_speed ?? 0),
                 'wordsToPractise' => $reading->wordsToPractise(),
             ],
-            'nextStory' => $reading->story->next()?->only(['id', 'title']),
+            'nextStory' => $child->suggestedStory(except: $reading->story)?->only(['id', 'title']),
         ]);
     }
 }

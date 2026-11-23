@@ -7,6 +7,7 @@ use App\Enums\WordOutcome;
 use Carbon\CarbonImmutable;
 use Database\Factories\ChildFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -231,16 +232,18 @@ class Child extends Model
     }
 
     /**
-     * Get the Story to suggest next: the first Story, in library order, at the
-     * suggested Level that the Child has not finished, falling back to any
-     * Story they have not finished. Null once every Story is finished.
+     * Get the Story to suggest next, on the home screen and after a result:
+     * the first Story, in library order, at the suggested Level that the
+     * Child has not finished, falling back to any Story they have not
+     * finished. The given Story, such as the one just finished, is never
+     * suggested. Null once every Story is finished.
      */
-    public function suggestedStory(): ?Story
+    public function suggestedStory(?Story $except = null): ?Story
     {
         $unfinishedStories = Story::query()
             ->whereNotIn('id', $this->readings()->finished()->select('story_id'))
-            ->orderBy('level')
-            ->orderBy('title');
+            ->when($except, fn (Builder $query, Story $story) => $query->whereKeyNot($story->id))
+            ->inLibraryOrder();
 
         return (clone $unfinishedStories)->where('level', $this->suggestedLevel())->first()
             ?? $unfinishedStories->first();
