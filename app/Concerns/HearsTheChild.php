@@ -17,7 +17,9 @@ use Illuminate\Http\UploadedFile;
 trait HearsTheChild
 {
     /**
-     * Get the normalised words the Child said in the clip, leaving out anything that is not a word.
+     * Get the normalised words the Child said in the clip, leaving out anything
+     * that is not a word. Speech-to-text is told the clip's format as detected
+     * from its content, never the type the browser labelled it with.
      *
      * @return list<string>
      *
@@ -25,7 +27,7 @@ trait HearsTheChild
      */
     protected function hear(SpeechToText $speechToText, UploadedFile $audio, string $expectedText): array
     {
-        $recognised = $speechToText->transcribe((string) $audio->get(), $audio->getClientMimeType(), $expectedText, 'uz');
+        $recognised = $speechToText->transcribe((string) $audio->get(), (string) $audio->getMimeType(), $expectedText, 'uz');
 
         return $this->normalizedWords($recognised);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Child;
 
+use App\Concerns\AudioClipValidationRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -11,6 +12,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class SentenceRequest extends FormRequest
 {
+    use AudioClipValidationRules;
+
     /**
      * The longest recording, in milliseconds, that counts toward reading time.
      */
@@ -25,7 +28,7 @@ class SentenceRequest extends FormRequest
     {
         return [
             'sentence' => ['required', 'integer', 'min:0'],
-            'audio' => ['required', 'file', 'max:5120'],
+            'audio' => $this->audioClipRules(),
             'duration_ms' => ['required', 'integer', 'min:0', 'max:'.self::MAX_DURATION_MS],
         ];
     }

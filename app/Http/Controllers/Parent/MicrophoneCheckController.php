@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers\Parent;
 
+use App\Concerns\HearsTheChild;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parent\MicrophoneCheckRequest;
 use App\Models\Child;
-use App\Speech\RecognisedWord;
 use App\Speech\SpeechToText;
 use App\Speech\SpeechToTextFailed;
-use App\Stories\UzbekWord;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -21,6 +20,8 @@ use Inertia\Response;
  */
 class MicrophoneCheckController extends Controller
 {
+    use HearsTheChild;
+
     /**
      * Show the microphone check for one of the Parent's Children.
      */
@@ -42,49 +43,21 @@ class MicrophoneCheckController extends Controller
     {
         Gate::authorize('update', $child);
 
-        $audio = $request->file('audio');
-
         try {
-            $recognised = $speechToText->transcribe((string) $audio->get(), $audio->getClientMimeType(), $this->testSentence($child), 'uz');
+            $heard = $this->hear($speechToText, $request->file('audio'), $this->testSentence($child));
         } catch (SpeechToTextFailed $failure) {
             report($failure);
 
             return $this->unheard('service_failed');
         }
 
-        if (! $this->heardAnyWord($recognised)) {
+        if ($heard === []) {
             return $this->unheard('nothing_heard');
         }
 
         $child->forceFill(['microphone_checked_at' => now()])->save();
 
         return response()->json(['status' => 'passed']);
-    }
-
-    /**
-     * Determine whether speech-to-text recognised at least one word.
-     *
-     * @param  list<RecognisedWord>  $recognised
-     */
-    private function heardAnyWord(array $recognised): bool
-    {
-        foreach ($recognised as $word) {
-            if (UzbekWord::normalize($word->text) !== '') {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Tell the Parent the tutor did not hear the Child. Nothing is stored.
-     *
-     * @param  'nothing_heard'|'service_failed'  $reason
-     */
-    private function unheard(string $reason): JsonResponse
-    {
-        return response()->json(['status' => 'unheard', 'reason' => $reason]);
     }
 
     /**

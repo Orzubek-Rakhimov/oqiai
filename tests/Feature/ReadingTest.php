@@ -5,6 +5,7 @@ use App\Models\Child;
 use App\Models\Reading;
 use App\Models\Story;
 use App\Models\WordResult;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -240,4 +241,40 @@ test('a sentence needs a clip and its length', function () {
         ->postJson(route('readings.sentences.store', $reading), ['sentence' => 0])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['audio', 'duration_ms']);
+});
+
+/**
+ * Write the given bytes to a temporary file and wrap it as an upload the browser labelled with the given type.
+ */
+function uploadedClip(string $bytes, string $name, string $clientMimeType): UploadedFile
+{
+    $path = tempnam(sys_get_temp_dir(), 'clip');
+    file_put_contents($path, $bytes);
+
+    return new UploadedFile($path, $name, $clientMimeType, null, true);
+}
+
+test('a sentence clip must be audio in a format browsers record', function (UploadedFile $audio) {
+    $reading = Reading::factory()->for($this->child)->for($this->story)->create();
+
+    actingAsChild($this->child)
+        ->postJson(route('readings.sentences.store', $reading), ['sentence' => 0, 'audio' => $audio, 'duration_ms' => 1500])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['audio']);
+
+    expect(speech()->requests())->toBe([]);
+})->with([
+    'a document' => fn () => UploadedFile::fake()->create('notes.pdf', 10, 'application/pdf'),
+    'text labelled as webm audio' => fn () => uploadedClip('hello world', 'sentence.webm', 'audio/webm'),
+]);
+
+test('speech-to-text is told the format found in the clip, not the one the browser claims', function () {
+    $wav = 'RIFF'.pack('V', 36).'WAVEfmt '.pack('VvvVVvv', 16, 1, 1, 16000, 32000, 2, 16).'data'.pack('V', 0);
+    $reading = Reading::factory()->for($this->child)->for($this->story)->create();
+
+    actingAsChild($this->child)
+        ->postJson(route('readings.sentences.store', $reading), ['sentence' => 0, 'audio' => uploadedClip($wav, 'sentence.webm', 'audio/webm'), 'duration_ms' => 1500])
+        ->assertOk();
+
+    expect(speech()->requests()[0]['mimeType'])->toBe('audio/x-wav');
 });

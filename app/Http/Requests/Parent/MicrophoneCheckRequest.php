@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Parent;
 
+use App\Concerns\AudioClipValidationRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -10,6 +11,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class MicrophoneCheckRequest extends FormRequest
 {
+    use AudioClipValidationRules;
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -18,7 +21,7 @@ class MicrophoneCheckRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'audio' => ['required', 'file', 'max:5120'],
+            'audio' => $this->audioClipRules(),
         ];
     }
 }

@@ -4,6 +4,7 @@ use App\Enums\WordOutcome;
 use App\Models\Child;
 use App\Models\Reading;
 use App\Models\Story;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -329,4 +330,11 @@ test('a Reading ending in Syllable help finishes once Syllable help is closed, a
             ->where('result.stars', 1)
             ->where('result.wordsToPractise', ['Ali', 'uyga', 'keldi', 'Mushuk', 'o‘yinchoq', 'bilan', "o'ynadi"]),
         );
+});
+
+test('a retry clip must be audio in a format browsers record', function () {
+    actingAsChild($this->child)
+        ->postJson(route('readings.retries.store', $this->reading), [...wordClip(0, 1), 'audio' => UploadedFile::fake()->create('notes.pdf', 10, 'application/pdf')])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['audio']);
 });
