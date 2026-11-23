@@ -2,15 +2,22 @@
 
 namespace Tests;
 
+use App\Speech\FakeSpeechToText;
+use App\Speech\FakeTextToSpeech;
+use App\Speech\SpeechToText;
+use App\Speech\TextToSpeech;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
-use Laravel\Fortify\Features;
 
 abstract class TestCase extends BaseTestCase
 {
-    protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void
+    /**
+     * Bind the speech-to-text and text-to-speech fakes for every test, so no test reaches a real service.
+     */
+    protected function setUp(): void
     {
-        if (! Features::enabled($feature)) {
-            $this->markTestSkipped($message ?? "Fortify feature [{$feature}] is not enabled.");
-        }
+        parent::setUp();
+
+        $this->app->instance(SpeechToText::class, new FakeSpeechToText);
+        $this->app->instance(TextToSpeech::class, new FakeTextToSpeech);
     }
 }

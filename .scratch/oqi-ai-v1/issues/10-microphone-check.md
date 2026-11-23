@@ -4,11 +4,11 @@
 
 **Blocked by:** 02, 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] After the first Child is created, the microphone check step appears.
-- [ ] The test sentence uses the Child's name and is checked through the speech-to-text interface. Any recognised words count as a pass.
-- [ ] Blocked permission and "nothing heard" each show clear Uzbek help on what to do next.
-- [ ] The step can be skipped, and the Parent can do it later from the Child's profile.
-- [ ] Nothing from the check is stored except whether it passed. The audio is discarded.
-- [ ] HTTP feature tests with the fake driver cover pass, nothing heard and skip.
+- [x] After the first Child is created, the microphone check step appears.
+- [x] The test sentence uses the Child's name and is checked through the speech-to-text interface. Any recognised words count as a pass.
+- [x] Blocked permission and "nothing heard" each show clear Uzbek help on what to do next.
+- [x] The step can be skipped, and the Parent can do it later from the Child's profile.
+- [x] Nothing from the check is stored except whether it passed. The audio is discarded.
+- [x] HTTP feature tests with the fake driver cover pass, nothing heard and skip.

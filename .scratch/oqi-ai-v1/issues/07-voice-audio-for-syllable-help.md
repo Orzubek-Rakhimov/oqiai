@@ -4,11 +4,11 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A text-to-speech interface exists: text + speaking options (slow rate, pauses) → audio. The driver is chosen by configuration. A fake driver is provided.
-- [ ] The generation command creates any missing clips for all Story words and skips existing ones.
-- [ ] The command can regenerate the clips for one named word.
-- [ ] Clips are saved to public storage with stable names derived from the word's normalised form and syllables. The same word in different Stories shares clips.
-- [ ] "Tinglash" plays the syllable clip, then the whole-word clip.
-- [ ] Console tests with the fake driver cover generation, skipping and single-word regeneration. An HTTP test checks that Syllable help gets the clip URLs.
+- [x] A text-to-speech interface exists: text + speaking options (slow rate, pauses) → audio. The driver is chosen by configuration. A fake driver is provided.
+- [x] The generation command creates any missing clips for all Story words and skips existing ones.
+- [x] The command can regenerate the clips for one named word.
+- [x] Clips are saved to public storage with stable names derived from the word's normalised form and syllables. The same word in different Stories shares clips.
+- [x] "Tinglash" plays the syllable clip, then the whole-word clip.
+- [x] Console tests with the fake driver cover generation, skipping and single-word regeneration. An HTTP test checks that Syllable help gets the clip URLs.

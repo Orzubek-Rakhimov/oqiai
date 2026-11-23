@@ -1,0 +1,440 @@
+# Deploying O'qi AI
+
+O'qi AI runs on the owner's VPS, deployed by Coolify as its own project, the
+same way as the ITPlaza CRM. A commit on `main` in the GitHub repository goes
+live once its checks pass. Coolify's proxy provides HTTPS, which the browser
+needs before it lets a page use the microphone, so the link opens on Android
+Chrome and iPhone Safari as it is.
+
+## What runs
+
+Coolify builds `compose.production.yaml`, which has two services from the two
+images of the one `Dockerfile` (`app` and `web`):
+
+| Service   | What it does                                                                                                                                             |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `oqi-php` | The app's pages (PHP-FPM). Each time it starts it saves a copy of the database if the new version changes it, runs the migrations, then accepts requests |
+| `nginx`   | Receives the domain's traffic from Coolify's proxy on port 8080. Serves the JavaScript, CSS, fonts and voice clips; passes the rest to `oqi-php`         |
+
+Unlike ITPlaza, there is **no database server**. v1 is a test with a handful
+of families, so the database is a single SQLite file on a volume, as in
+development. It is set up for several PHP workers sharing the file (WAL
+journal, a 5-second wait when the file is busy, foreign keys on). Sessions and
+the cache are kept in it too.
+
+There is no scheduler, no queue worker and no Redis: nothing runs on a
+schedule, and the one piece of background work, making a word's voice clip
+the first time a Child needs it, runs in `oqi-php` just after the answer is
+sent to the Child (so it needs no worker). Pages are drawn in the browser (no
+server-side rendering), so no Node process runs on the server.
+
+Two volumes hold what must outlive a redeploy:
+
+| Volume        | What is in it                                                                                             |
+| ------------- | --------------------------------------------------------------------------------------------------------- |
+| `database`    | `storage/database`: the SQLite file `database.sqlite` and the last three safety copies (`before-deploy/`) |
+| `app-storage` | `storage/app`: the voice clips for Syllable help (`storage/app/public`, served under `/storage`)          |
+
+Children's recordings are never saved, on the server or anywhere else
+(ADR-0002), so they are in neither volume.
+
+## First setup
+
+### 1. The code on GitHub
+
+1. Create a **private** repository on GitHub.
+2. On your PC: `git remote add origin <the repository's address>`, then
+   `git push -u origin main`.
+
+### 2. The app
+
+1. In Coolify, in a new project for O'qi AI: **New resource → your private
+   GitHub repository → Docker Compose**, branch `main`, and set **Docker
+   Compose Location** to `/compose.production.yaml`. No database resource is
+   needed.
+2. Point the domain at the VPS first: an `A` record for it with the VPS's IP
+   address, at your domain registrar. Then, if Coolify doesn't list the two
+   services yet, click **Reload Compose File**. Under **Domains → Add
+   Domain**, fill in:
+    - **Service:** `nginx` (only nginx gets a domain)
+    - **Protocol:** `https`
+    - **Domain:** the address, without `https://`, e.g. `oqi.example.uz`
+    - **Port:** `8080` (the port nginx listens on inside its container; the
+      public address has no port)
+    - **Path:** empty; **Search engine indexing:** not indexable
+
+    Coolify gets its certificate.
+
+3. Under **Environment variables**, fill in the settings from
+   `.env.production.example`. The required ones:
+    - `APP_KEY`: run `php artisan key:generate --show` on your PC and paste
+      the result. Keep a copy somewhere safe.
+    - `APP_URL`: the public address from step 2, e.g.
+      `https://oqi.example.uz`. It must start with `https://`, or the app
+      refuses to start.
+
+    - `GEMINI_API_KEY`: the paid-tier Gemini API key (see
+      [Speech-to-text and voice](#speech-to-text-and-voice)). Without it the
+      app refuses to start.
+
+4. Leave **automatic deployment off** for now (step 5 sets up deploys).
+5. **Deploy.** The first build takes several minutes. On the first start
+   `oqi-php` creates the empty database file and runs the migrations.
+
+If nginx answers 502 because it cannot find `oqi-php`, open the app
+resource's settings and switch on **Connect To Predefined Network**, then
+deploy again. That network is shared with every other project on the
+Coolify, so the service names nginx looks up must be this project's own:
+never rename `oqi-php` to a common name such as `app` (ITPlaza's is
+`crm-php`).
+
+### 3. The Stories and their voice clips
+
+Production starts empty. Open the app resource's **Terminal** in Coolify,
+choose the `oqi-php` service, and load the Stories from `resources/stories`
+(they are in the image):
+
+```bash
+php artisan stories:load
+```
+
+Run it again after every deploy that adds or changes a Story file.
+
+The Syllable help voice clips need no command: a word's clip (its syllables
+read slowly with pauses, then the whole word, from one voice request) is made
+the first time a Child misreads the word, just after the answer is sent, and
+kept for every Child after that. The first Child to need a word may wait a few
+seconds for "Tinglash" to appear, and hears that clip before anyone has
+checked it. If the voice service fails or is rate limited (a `429`, as the
+first Gemini key was at 3 requests a minute), the Child reads on without
+"Tinglash", and the word is tried again later: after the wait the service
+asks for (`Retry-After`), or else after 15 seconds, doubling up to 10 minutes.
+
+The clips land in the `app-storage` volume and outlive every redeploy. They
+are under `https://<domain>/storage/audio/clips/`, one per word, named by its
+syllables (`o'yinchoq` is `o_-yin-choq.wav`). **Listen to the new clips** now
+and then: a syllable read as a letter name, or a word read too fast, teaches
+the wrong sound. If one word sounds wrong, make its clip again with
+`php artisan audio:generate <word>`, and listen again.
+
+Making every clip ahead is optional: `php artisan audio:generate` makes the
+clip of each Story word that has none and keeps the ones that exist. With a
+rate-limited key it waits as long as the service asks (or a minute) between
+tries, so several hundred words can take hours. Clips from before this
+version (the `audio/syllables` and `audio/words` folders) are no longer used
+and can be removed with `rm -r storage/app/public/audio/syllables
+storage/app/public/audio/words`.
+
+Never run the database seeder on the server: it creates a login with a known
+password.
+
+### 4. Check it
+
+- `https://<domain>/up` answers with a page saying the application is up.
+- `https://<domain>` opens on a phone, and a Parent can sign up and log in.
+- On Android Chrome and on iPhone Safari, the browser asks for the
+  microphone when the app wants it. (It never asks on a page without HTTPS.)
+- In Coolify's logs, `oqi-php` shows the database being created and the
+  migrations running.
+
+### 5. Deploys from GitHub
+
+The checks in `.github/workflows/tests.yml` run on every commit on `main`;
+when they pass, the workflow asks Coolify to deploy.
+
+1. In Coolify, create an API token (**Keys & Tokens → API tokens**; API
+   access may first need switching on in Coolify's settings).
+2. On the app resource's **Webhooks** page, copy the **deploy webhook**
+   address.
+3. On GitHub, under the repository's **Settings → Secrets and variables →
+   Actions**, add two secrets: `COOLIFY_DEPLOY_WEBHOOK` (the address) and
+   `COOLIFY_API_TOKEN` (the token).
+
+Until the secrets exist the workflow only runs the checks. To deploy without
+waiting for them, press **Deploy** in Coolify.
+
+## Every deploy after that
+
+Commit to `main` and push. When the checks pass, Coolify rebuilds the images
+and replaces the services; the app is unreachable for some seconds while
+`oqi-php` restarts. `oqi-php` then:
+
+1. refuses to start if `APP_KEY` is missing or `APP_URL` isn't HTTPS;
+2. saves a copy of the database, **if** the new version brings a migration
+   (`php artisan backup:before-deploy`), keeping the last three. The copy is
+   made with SQLite's `VACUUM INTO`, so it is consistent even while the old
+   version is still using the file;
+3. runs the new migrations;
+4. accepts requests, and `nginx` starts.
+
+If the copy cannot be made, nothing is changed and `oqi-php` does not start:
+read its log in Coolify, fix the cause (usually a full disk), and deploy
+again. If a migration fails, `oqi-php` does not become ready either; read the
+log, fix it, and deploy again.
+
+## Undoing a deploy that damaged the data
+
+The safety copy is the database as it was just before that deploy. Anything
+saved after it is lost by restoring, so act quickly.
+
+1. Take the bad version back: `git revert <its commit>` and push (or deploy
+   the commit before it in Coolify). Wait until it runs.
+2. In Coolify's **Terminal**, on the `oqi-php` service:
+
+    ```bash
+    php artisan down
+    cd storage/database
+    ls -l before-deploy
+    cp before-deploy/<the newest file> database.sqlite
+    rm -f database.sqlite-wal database.sqlite-shm
+    cd /var/www/html
+    php artisan up
+    ```
+
+    `php artisan down` stops the pages from using the database, and the
+    `-wal` and `-shm` files belong to the damaged database, so they must go
+    with it.
+
+3. Everyone logs in again and checks the last things they did.
+
+## Backups
+
+Coolify's **Backups** tab is for database resources only, so it does not
+cover the SQLite file. Two volumes must be backed up to storage outside the
+server, by hand or with the VPS provider's snapshots:
+
+- **`database`**: the SQLite file and its safety copies. This is the one that
+  matters: Parents, Children and every Reading.
+- **`app-storage`**: the voice clips. Lost clips are made again when
+  Children next need them (or with the `audio:generate` command), but that
+  costs time and money with the voice service, and each clip was checked by
+  ear.
+
+To take a consistent copy of the database by hand (never copy
+`database.sqlite` with `cp` while the app is running), run this in the
+`oqi-php` service's terminal, then download the file from the server:
+
+```bash
+php -r '(new PDO("sqlite:storage/database/database.sqlite"))->exec("VACUUM INTO '\''storage/database/copy-".date("Y-m-d-His").".sqlite'\''");'
+```
+
+Also keep, outside the server: the `APP_KEY`. Coolify's own settings have
+their own backup (**Settings → Backup**).
+
+### Restoring a backup
+
+1. Put the database copy back as `database.sqlite` in the `database` volume,
+   as in "Undoing a deploy" above.
+2. Put the clips back into the `app-storage` volume if they were lost.
+3. Deploy the app. Try this once before the test families arrive.
+
+## Moving to another server
+
+1. Create the app resource on the new server's Coolify (step 2) with the
+   **same `APP_KEY`**.
+2. Stop the app on the old server so nothing more is saved there.
+3. Copy the contents of both volumes (`database` and `app-storage`) to the
+   new server's volumes of the same names.
+4. Deploy, and check it (step 4) on a temporary address or by the IP.
+5. Change the domain's `A` record to the new server, update the two GitHub
+   secrets (step 5), and remove the old resource once all is well.
+
+## Speech-to-text and voice
+
+The app listens to the Child with a speech-to-text service and voices the
+Syllable help clips with a text-to-speech service: Google's (Gemini, Chirp)
+or Aisha's (VoiceLab, built for Uzbek). Which
+ones is set by environment variables in Coolify; changing them needs a
+restart (**Redeploy**), not a code change.
+
+### Before connecting anything
+
+- **The paid tier only.** Use a Gemini API key from a Google Cloud project
+  with billing switched on (the paid tier). On the free tier Google may use
+  what it is sent to improve its products, and people may read it; it must
+  never receive children's recordings. Check that the key's project shows the
+  paid tier in Google AI Studio before putting the key in Coolify.
+- **Google's written approval.** Gemini's terms otherwise forbid services
+  aimed at under-18s. Keep Google's written confirmation that O'qi AI may use
+  these models in a children's app on file, and check that it covers any
+  model you switch to.
+
+### The settings
+
+| Setting                          | Default                                                         | What it does                                                                                                                                       |
+| -------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                 | (required)                                                      | The paid-tier key. One key serves both listening and the voice                                                                                     |
+| `SPEECH_TO_TEXT_DRIVER`          | `gemini`                                                        | Who listens: `gemini`, `chirp` or `aisha`                                                                                                          |
+| `GEMINI_TRANSCRIBE_MODEL`        | `gemini-3.5-transcribe`                                         | The Gemini listening model. Always run in verbatim mode in Uzbek (`uz-UZ`) and never sent the Story text, so a misread word is never smoothed over |
+| `TEXT_TO_SPEECH_DRIVER`          | `gemini`                                                        | Who voices the clips: `gemini` or `aisha`                                                                                                          |
+| `GEMINI_TTS_MODEL`               | `gemini-3.8-flash-tts`                                          | The voice model. `gemini-3.8-flash-lite-tts` is the cheaper fallback                                                                               |
+| `GEMINI_TTS_VOICE`               | `Kore`                                                          | One of Gemini's prebuilt voices (Kore, Aoede, Leda, Puck and others, listed in Google's speech generation guide)                                   |
+| `CHIRP_MODEL`                    | `chirp_3`                                                       | Only for `chirp`: the Google Cloud Speech-to-Text model                                                                                            |
+| `CHIRP_LOCATION`                 | `us`                                                            | Only for `chirp`: the region, `us` or `eu` (Uzbek is in Preview for `chirp_3`)                                                                     |
+| `CHIRP_PROJECT_ID`               | the key file's project                                          | Only for `chirp`: the Google Cloud project, if it isn't the service account's own                                                                  |
+| `GOOGLE_APPLICATION_CREDENTIALS` | `/var/www/html/storage/app/private/google-service-account.json` | Only for `chirp`: the service account's JSON key file                                                                                              |
+| `AISHA_API_KEY`                  | (none)                                                          | Only for `aisha`: a VoiceLab developer key (`vlk_…`). One key serves both listening and the voice; see its permissions below                       |
+| `AISHA_BASE_URL`                 | `https://api.voicelab.uz`                                       | Only for `aisha`: the VoiceLab developer API                                                                                                       |
+| `AISHA_TTS_MODEL`                | `lison`                                                         | Only for an `aisha` voice: a model ID from VoiceLab's catalog (`lison`, or another listed by `GET /v1/tts/languages`)                              |
+| `AISHA_TTS_VOICE`                | (empty: the first Uzbek voice listed)                           | Only for an `aisha` voice: a `voice_…` ID, or a voice's name as `GET /v1/voices?language=uz` lists it                                              |
+| `AISHA_TTS_SLOW_SPEED`           | `0.8`                                                           | Only for an `aisha` voice: the speed of the slow Syllable help clips, from `0.5` to `2.0` (`1.0` is the usual pace)                                |
+
+The app **refuses to start** (`php artisan speech:check`, in the start-up
+checks) when either driver is `fake`, because the fake listener scores every
+sentence as perfect. It also refuses when a Gemini driver has no
+`GEMINI_API_KEY`, when `chirp` has no key file, or when an `aisha` driver has
+no `AISHA_API_KEY`. Coolify's log then says
+which setting is wrong.
+
+If a service fails or takes too long (20 seconds to listen, 60 to make a
+clip), the Child is asked to read the sentence again and nothing is scored.
+
+### Comparing Gemini and Chirp
+
+Listening can use either Google service, to compare them on real children's
+reading:
+
+- **Gemini** (the default): `SPEECH_TO_TEXT_DRIVER=gemini`.
+- **Chirp 3** (Google Cloud Speech-to-Text V2, `chirp_3`, no phrase hints):
+    1. In the Google Cloud console, in the project with billing, enable the
+       **Cloud Speech-to-Text API**. Create a service account with the role
+       **Cloud Speech Client** and make a **JSON key** for it.
+       Speech-to-Text takes no API key for this call: the app signs in as the
+       service account and keeps the sign-in for about 55 minutes.
+    2. Put the key file on the server, on the `app-storage` volume, where it
+       is never served (nginx serves only `storage/app/public`). In the
+       `oqi-php` terminal, run
+       `cat > storage/app/private/google-service-account.json`, paste the
+       file's contents, press Enter, then Ctrl+D.
+    3. Set `SPEECH_TO_TEXT_DRIVER=chirp` and redeploy.
+
+Switch back with `SPEECH_TO_TEXT_DRIVER=gemini` and redeploy. Locally, the
+same settings in `.env` work with `composer run dev`.
+
+### Trying Aisha
+
+Aisha (VoiceLab, [aisha.group](https://aisha.group), sign-in at
+[voicelab.uz](https://voicelab.uz/app)) is an Uzbek company whose speech
+services are built for Uzbek. It can listen, voice the clips, or both, and is
+paid in credits (one credit a character of voice; listening is charged by the
+length of the recording). The app uses its **developer API**
+(`https://api.voicelab.uz`, documented at
+[docs.voicelab.uz/api](https://docs.voicelab.uz/api/)).
+
+1. **Ask Aisha first** (their documentation doesn't answer these):
+    - **Children**: whether their terms allow a reading app for children
+      in primary school (grades 1 to 4), and whether they use what they
+      are sent (children's recordings) to train or improve their models.
+      Get the answer in writing and keep it on file.
+    - **Data**: where the recordings and voice text are processed and
+      stored (in Uzbekistan or not), how long they are kept, and how to have
+      them deleted. Every transcription is kept in the account's history
+      until it is deleted. This bears on Uzbekistan's personal-data rules;
+      check those separately.
+    - **Speed**: how long a transcription of a 15-second recording takes.
+      Every recording is processed in the background and the app waits for
+      it, for at most 20 seconds.
+2. **Make a developer key** at voicelab.uz → developer → API keys. It must
+   be a developer key, in the `vlk_…` format: keys for the older Aisha API
+   (`back.aisha.group`) don't work here, and that API refuses `vlk_…` keys
+   (`invalid_api_key_format`). Give the key these permissions:
+
+    | Permission     | Level      | Needed for                                                                                  |
+    | -------------- | ---------- | ------------------------------------------------------------------------------------------- |
+    | Speech to text | **Access** | Listening: sending a recording (Write) and reading its transcript back (Read)               |
+    | Text to speech | **Access** | The voice: making a clip (Write) and, for a slow one, reading the finished clip back (Read) |
+    | Voices         | Read       | Only when `AISHA_TTS_VOICE` is a name or empty, to look the voice up                        |
+
+    Leave the others at None. The secret is shown only once, when the key is
+    made. A key without a permission it needs is refused (`insufficient_scope`),
+    and the log names the permission to add. Top up the credits: when they run
+    out, listening fails (the Child is asked to read again) and clips wait and
+    are tried again later, so keep them topped up.
+
+3. **Choose the voice** (only for `TEXT_TO_SPEECH_DRIVER=aisha`). Leave
+   `AISHA_TTS_VOICE` empty for the first Uzbek voice VoiceLab lists for the
+   model, set it to a voice's name, or, best, to its `voice_…` ID, which
+   needs no Voices permission. To see the voices, run
+   `curl -H "Authorization: Bearer $AISHA_API_KEY" 'https://api.voicelab.uz/v1/voices?language=uz&model_id=lison'`.
+4. Set `AISHA_API_KEY`, then `SPEECH_TO_TEXT_DRIVER=aisha` to listen with
+   Aisha, `TEXT_TO_SPEECH_DRIVER=aisha` for its voice, or both, and
+   redeploy.
+
+How the app uses Aisha:
+
+- **Listening** uploads the Child's recording (`POST /v1/stt`) in Uzbek and
+  waits for the transcript (`GET /v1/stt/transcriptions/{id}`, about once a
+  second, or as `Retry-After` asks). The Story text is never sent. The browser
+  records WAV, which VoiceLab takes (with MP3, M4A, OGG, WebM and FLAC).
+  "No speech detected" counts as nothing heard.
+- **The voice** reads a word's syllables, then the whole word, in one
+  request (`POST /v1/tts`). VoiceLab has no pause markup, so the syllables
+  are written with full stops between them ("ku. tub. xo. na. ga.
+  kutubxonaga."), and the slow pace is `AISHA_TTS_SLOW_SPEED`. A clip
+  usually comes back in that one request; a slow one is waited for and then
+  downloaded. Clips made before the switch keep the old voice: make them
+  again as in [Changing the voice](#changing-the-voice), and listen to them.
+- **Limits**: a rate limit (429) or used-up credits (402) makes a clip wait
+  before it is tried again, for as long as `Retry-After` asks when VoiceLab
+  says.
+
+Switch back with `SPEECH_TO_TEXT_DRIVER=gemini` and/or
+`TEXT_TO_SPEECH_DRIVER=gemini` and redeploy. The Aisha key can stay set.
+`AISHA_BASE_URL` changes only the address: the older Aisha API at
+`back.aisha.group` has other paths and fields, so pointing it there doesn't
+bring that API back.
+
+### Changing the voice
+
+Clips already made keep the old voice after `TEXT_TO_SPEECH_DRIVER`,
+`GEMINI_TTS_MODEL`, `GEMINI_TTS_VOICE` or an `AISHA_TTS_*` setting changes. Make them again one word at a time with
+`php artisan audio:generate <word>`, or remove `storage/app/public/audio` in
+the `oqi-php` terminal: each clip is then made again in the new voice when a
+Child next needs it (or all at once with `php artisan audio:generate`). Then
+**listen to the clips**, as in [step 3](#3-the-stories-and-their-voice-clips).
+
+## Settings worth knowing
+
+- **`RUN_MIGRATIONS`** (default `true`): set it to `false` for one deploy to
+  start without the safety copy and the migrations, e.g. to run a risky
+  migration by hand from the `oqi-php` service's terminal. Set it back.
+- **`BACKUP_BEFORE_MIGRATIONS`** (default `true`): set it to `false` for one
+  deploy to run the migrations without the safety copy. Set it back.
+- **`DEPLOY_BACKUPS_TO_KEEP`** (default `3`): how many safety copies stay in
+  `storage/database/before-deploy`.
+- **`TRUSTED_PROXIES`** (default: Docker's private address ranges): whose
+  `X-Forwarded-*` headers the app believes when working out whether a
+  request came over HTTPS and from which address. The default fits Coolify.
+  The forwarded host is never believed, so links always use the app's own
+  address.
+- **Memory and CPU limits** per service: `APP_MEMORY` (768M), `WEB_MEMORY`
+  (128M), `APP_CPUS` (1) and `WEB_CPUS` (0.5). The app serves up to 10
+  requests at once (`docker/php/fpm-pool.conf`); raise that together with
+  `APP_MEMORY`.
+- **The speech and voice settings**: see
+  [Speech-to-text and voice](#speech-to-text-and-voice).
+- `APP_ENV=production`, `APP_DEBUG=false`, the SQLite settings and
+  HTTPS-only cookies are fixed in the compose file and can't be changed from
+  Coolify.
+
+## Good to know
+
+- **One server only.** SQLite is a file on this server's disk, so the app
+  runs as a single `oqi-php` service. Moving to a database server
+  (PostgreSQL, as ITPlaza) is the step to take if O'qi AI outgrows the test.
+- **Logs** go to Coolify's log view; each service keeps at most 30 MB.
+- **A command on the server**, such as `php artisan tinker` or resetting a
+  Parent's forgotten password by hand: the `oqi-php` service's terminal in
+  Coolify.
+- **Secrets** live only in Coolify's environment variables and GitHub's
+  secrets. Nothing in the repository or the images holds one.
+- **The microphone** is allowed for the app's own pages only (nginx sends
+  `Permissions-Policy: microphone=(self)`).
+- **A scheduler or queue worker** is not running (the voice clips are made
+  in `oqi-php` after the answer is sent, so they need neither). If a later
+  version needs one, add a service like ITPlaza's `scheduler` with the same image, the
+  `database` volume, and the command `php artisan schedule:work` (or
+  `queue:work`, and set `QUEUE_CONNECTION` to `database`).
+- **Building the images on your PC:** `docker build --target app .` and
+  `docker build --target web .` build the two images; the build downloads
+  the fonts from Bunny Fonts, so it needs the network.

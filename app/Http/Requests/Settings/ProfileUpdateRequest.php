@@ -2,23 +2,21 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Concerns\NormalizesPhoneNumbers;
 use App\Concerns\ProfileValidationRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 
 class ProfileUpdateRequest extends FormRequest
 {
-    use ProfileValidationRules;
+    use NormalizesPhoneNumbers, ProfileValidationRules;
 
     /**
      * Prepare the data for validation.
      */
     protected function prepareForValidation(): void
     {
-        if (config('fortify.lowercase_usernames') && is_string($this->input('email'))) {
-            $this->merge(['email' => Str::lower($this->input('email'))]);
-        }
+        $this->merge(['phone' => $this->normalizePhoneNumber($this->input('phone'))]);
     }
 
     /**

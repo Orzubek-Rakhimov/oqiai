@@ -4,13 +4,13 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Finishing the last sentence stores the finish time, Accuracy, Stars and Reading speed.
-- [ ] Accuracy = words correct on the first try ÷ all words in the Story.
-- [ ] Stars: 3 at 95%+ Accuracy, 2 at 85%+, otherwise 1.
-- [ ] Reading speed = words correct on the first try ÷ minutes of reading time.
-- [ ] The result screen shows Stars, Accuracy, Reading speed and the words not correct on the first try, with "next Story" and "back to home" buttons.
-- [ ] The library shows best Stars per Story. A re-read can improve the best but never lowers it.
-- [ ] Stars total = sum of best Stars per Story. Unfinished Readings give no Stars.
-- [ ] HTTP feature tests cover the thresholds (including exactly 95% and 85%), best-per-Story, re-reads and unfinished Readings.
+- [x] Finishing the last sentence stores the finish time, Accuracy, Stars and Reading speed.
+- [x] Accuracy = words correct on the first try ÷ all words in the Story.
+- [x] Stars: 3 at 95%+ Accuracy, 2 at 85%+, otherwise 1.
+- [x] Reading speed = words correct on the first try ÷ minutes of reading time.
+- [x] The result screen shows Stars, Accuracy, Reading speed and the words not correct on the first try, with "next Story" and "back to home" buttons.
+- [x] The library shows best Stars per Story. A re-read can improve the best but never lowers it.
+- [x] Stars total = sum of best Stars per Story. Unfinished Readings give no Stars.
+- [x] HTTP feature tests cover the thresholds (including exactly 95% and 85%), best-per-Story, re-reads and unfinished Readings.

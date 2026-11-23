@@ -1,92 +1,119 @@
 <?php
 
-namespace Tests\Feature\Auth;
-
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\RateLimiter;
-use Laravel\Fortify\Features;
-use Tests\TestCase;
+use Inertia\Testing\AssertableInertia as Assert;
 
-class AuthenticationTest extends TestCase
-{
-    use RefreshDatabase;
+test('the login screen is rendered', function () {
+    $this->get(route('login'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/login')
+            ->missing('canResetPassword'),
+        );
+});
 
-    public function test_login_screen_can_be_rendered()
-    {
-        $response = $this->get(route('login'));
+test('a parent logs in with their phone number typed in any local form', function (string $typedPhone) {
+    $parent = User::factory()->create(['phone' => '+998901234567']);
 
-        $response->assertOk();
-    }
+    $response = $this->post(route('login.store'), [
+        'phone' => $typedPhone,
+        'password' => 'password',
+    ]);
 
-    public function test_users_can_authenticate_using_the_login_screen()
-    {
-        $user = User::factory()->create();
+    $response->assertSessionHasNoErrors()
+        ->assertRedirect(route('picker', absolute: false));
 
-        $response = $this->post(route('login.store'), [
-            'email' => $user->email,
-            'password' => 'password',
-        ]);
+    $this->assertAuthenticatedAs($parent);
+})->with([
+    'canonical' => '+998901234567',
+    'without plus' => '998901234567',
+    'without country code' => '901234567',
+    'with spaces' => '+998 90 123 45 67',
+    'with dashes' => '90-123-45-67',
+]);
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
-    }
+test('a parent cannot log in with a wrong password', function () {
+    User::factory()->create(['phone' => '+998901234567']);
 
-    public function test_users_with_two_factor_enabled_are_redirected_to_two_factor_challenge()
-    {
-        $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
+    $this->post(route('login.store'), [
+        'phone' => '+998901234567',
+        'password' => 'wrong-password',
+    ])->assertSessionHasErrors([
+        'phone' => "Telefon raqami yoki parol noto'g'ri.",
+    ]);
 
-        Features::twoFactorAuthentication([
-            'confirm' => true,
-            'confirmPassword' => true,
-        ]);
+    $this->assertGuest();
+});
 
-        $user = User::factory()->withTwoFactor()->create();
+test('an unregistered phone number cannot log in', function () {
+    $this->post(route('login.store'), [
+        'phone' => '+998907654321',
+        'password' => 'password',
+    ])->assertSessionHasErrors('phone');
 
-        $response = $this->post(route('login'), [
-            'email' => $user->email,
-            'password' => 'password',
-        ]);
+    $this->assertGuest();
+});
 
-        $response->assertRedirect(route('two-factor.login'));
-        $response->assertSessionHas('login.id', $user->id);
-        $this->assertGuest();
-    }
+test('a parent signs up and can log in again later', function () {
+    $this->post(route('register.store'), [
+        'name' => 'Dilnoza',
+        'phone' => '90 123 45 67',
+        'password' => 'password',
+    ]);
 
-    public function test_users_can_not_authenticate_with_invalid_password()
-    {
-        $user = User::factory()->create();
+    $this->post(route('logout'));
+    $this->assertGuest();
 
+    $this->post(route('login.store'), [
+        'phone' => '+998-90-123-45-67',
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticatedAs(User::sole());
+});
+
+test('a parent can log out', function () {
+    $parent = User::factory()->create();
+
+    $this->actingAs($parent)
+        ->post(route('logout'))
+        ->assertRedirect(route('home'));
+
+    $this->assertGuest();
+});
+
+test('login attempts are rate limited per phone number whatever form it is typed in', function () {
+    User::factory()->create(['phone' => '+998901234567']);
+
+    foreach (['+998901234567', '901234567', '90 123 45 67', '998901234567', '90-123-45-67'] as $typedPhone) {
         $this->post(route('login.store'), [
-            'email' => $user->email,
+            'phone' => $typedPhone,
             'password' => 'wrong-password',
         ]);
-
-        $this->assertGuest();
     }
 
-    public function test_users_can_logout()
-    {
-        $user = User::factory()->create();
+    $this->post(route('login.store'), [
+        'phone' => '+998 90 123 45 67',
+        'password' => 'password',
+    ])->assertTooManyRequests();
 
-        $response = $this->actingAs($user)->post(route('logout'));
+    $this->assertGuest();
+});
 
-        $response->assertRedirect(route('home'));
+test('the rate limit for one phone number does not block another', function () {
+    $other = User::factory()->create(['phone' => '+998907654321']);
 
-        $this->assertGuest();
-    }
-
-    public function test_users_are_rate_limited()
-    {
-        $user = User::factory()->create();
-
-        RateLimiter::increment(md5('login'.implode('|', [$user->email, '127.0.0.1'])), amount: 5);
-
-        $response = $this->post(route('login.store'), [
-            'email' => $user->email,
+    foreach (range(1, 5) as $attempt) {
+        $this->post(route('login.store'), [
+            'phone' => '+998901234567',
             'password' => 'wrong-password',
         ]);
-
-        $response->assertTooManyRequests();
     }
-}
+
+    $this->post(route('login.store'), [
+        'phone' => '+998907654321',
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticatedAs($other);
+});

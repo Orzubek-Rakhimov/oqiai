@@ -36,3 +36,26 @@ jobs:
 
       - name: Run CI Checks
         run: composer ci:check
+
+  # A commit on main goes live only after the checks above pass: this asks
+  # Coolify to deploy it (see docs/deployment.md). Without the two secrets
+  # the step is skipped, so the checks still work before the server exists.
+  deploy:
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ask Coolify to deploy
+        env:
+          COOLIFY_DEPLOY_WEBHOOK: ${{ secrets.COOLIFY_DEPLOY_WEBHOOK }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          if [ -z "$COOLIFY_DEPLOY_WEBHOOK" ] || [ -z "$COOLIFY_API_TOKEN" ]; then
+            echo "::notice::Not deployed: the COOLIFY_DEPLOY_WEBHOOK and COOLIFY_API_TOKEN secrets are not set."
+            exit 0
+          fi
+
+          curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer $COOLIFY_API_TOKEN" \
+            "$COOLIFY_DEPLOY_WEBHOOK"

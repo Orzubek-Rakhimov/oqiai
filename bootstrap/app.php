@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureActiveChild;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -15,7 +16,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Behind nginx and Coolify's proxy on the VPS, the browser's real address and scheme come in
+        // these headers. They are believed only from the addresses in config/trustedproxy.php, and
+        // X-Forwarded-Host never is, so links always point at the app's own host.
+        $middleware->trustProxies(
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO,
+        );
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+
+        $middleware->alias([
+            'active-child' => EnsureActiveChild::class,
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,

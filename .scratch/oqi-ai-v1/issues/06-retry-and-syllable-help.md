@@ -4,14 +4,14 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Misread words in a sentence are retried one at a time, in order, each recorded and checked like a sentence.
-- [ ] Correct on retry is recorded as "correct on retry".
-- [ ] Misread on retry opens Syllable help with the word's stored syllables.
-- [ ] In Syllable help the Child reads the word once more. That attempt isn't scored, and the word is recorded as "needed Syllable help" whatever the result.
-- [ ] After the last misread word, the next sentence (or finishing) follows. The Story never gets stuck.
-- [ ] Time spent in Syllable help is not added to reading time. Retry recordings are added.
-- [ ] Syllable help shows a "Tinglash" button. It plays audio once 07 lands, and until then is hidden or disabled when no clip exists.
-- [ ] Unscored failures (nothing heard, service error) during retry ask the Child to try again, as in 04.
-- [ ] HTTP feature tests with the fake driver cover retry success, Syllable help, the unscored final read, reading time and how outcomes affect Accuracy.
+- [x] Misread words in a sentence are retried one at a time, in order, each recorded and checked like a sentence.
+- [x] Correct on retry is recorded as "correct on retry".
+- [x] Misread on retry opens Syllable help with the word's stored syllables.
+- [x] In Syllable help the Child reads the word once more. That attempt isn't scored, and the word is recorded as "needed Syllable help" whatever the result.
+- [x] After the last misread word, the next sentence (or finishing) follows. The Story never gets stuck.
+- [x] Time spent in Syllable help is not added to reading time. Retry recordings are added.
+- [x] Syllable help shows a "Tinglash" button. It plays audio once 07 lands, and until then is hidden or disabled when no clip exists.
+- [x] Unscored failures (nothing heard, service error) during retry ask the Child to try again, as in 04.
+- [x] HTTP feature tests with the fake driver cover retry success, Syllable help, the unscored final read, reading time and how outcomes affect Accuracy.

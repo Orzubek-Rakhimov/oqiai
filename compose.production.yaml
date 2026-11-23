@@ -1,0 +1,161 @@
+# O'qi AI on the VPS, deployed by Coolify (see docs/deployment.md).
+# Not for development, which runs on SQLite with `composer run dev`.
+#
+# Two services from the two images of the Dockerfile. The database is a
+# SQLite file on the `database` volume (a test project with a handful of
+# families needs no database server). There is no scheduler and no queue worker:
+# nothing runs on a schedule, and a word's voice clip is made by PHP-FPM just
+# after the answer is sent to the Child (docs/deployment.md). Settings come from
+# Coolify's environment variables (listed in .env.production.example);
+# nothing secret is in this file.
+
+x-logging: &logging
+    driver: json-file
+    options:
+        max-size: '10m'
+        max-file: '3'
+
+services:
+    # Named for this project alone: Coolify's shared network holds the other
+    # projects' services too, and a common name such as `app` would make
+    # nginx share its requests with another project's PHP.
+    oqi-php:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: app
+        image: oqi-ai-app
+        restart: unless-stopped
+        logging: *logging
+        command: ['php-fpm']
+        stop_grace_period: 75s
+        cpus: ${APP_CPUS:-1}
+        mem_limit: ${APP_MEMORY:-768M}
+        environment:
+            APP_NAME: ${APP_NAME:-O'qi AI}
+            # Fixed here, so debug mode can't be switched on in production by a setting.
+            APP_ENV: production
+            APP_DEBUG: 'false'
+            APP_KEY: ${APP_KEY:?Set the persistent application encryption key}
+            APP_URL: ${APP_URL:?Set the public HTTPS URL}
+            APP_LOCALE: ${APP_LOCALE:-uz}
+            APP_FALLBACK_LOCALE: ${APP_FALLBACK_LOCALE:-en}
+            # Whose X-Forwarded-* headers Laravel believes: Coolify's proxy and
+            # nginx, which reach the app from Docker's private networks.
+            TRUSTED_PROXIES: ${TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+            LOG_CHANNEL: stderr
+            LOG_LEVEL: ${LOG_LEVEL:-info}
+            # The SQLite file, on the database volume below. Created on the first
+            # start (docker/start-container.sh).
+            DB_CONNECTION: sqlite
+            DB_DATABASE: /var/www/html/storage/database/database.sqlite
+            # Suited to several PHP-FPM workers sharing one file: readers don't
+            # wait for a writer (WAL), a busy file is waited for up to 5 seconds
+            # instead of failing, and a write takes its lock when its transaction
+            # starts, so two writers queue instead of one failing midway.
+            DB_JOURNAL_MODE: wal
+            DB_SYNCHRONOUS: normal
+            DB_BUSY_TIMEOUT: 5000
+            DB_TRANSACTION_MODE: IMMEDIATE
+            DB_FOREIGN_KEYS: 'true'
+            SESSION_DRIVER: database
+            # The session cookie is sent over HTTPS only.
+            SESSION_SECURE_COOKIE: 'true'
+            CACHE_STORE: database
+            # Nothing is queued and no worker runs, so a job someone adds later
+            # runs at once instead of waiting for a worker that isn't there.
+            QUEUE_CONNECTION: sync
+            FILESYSTEM_DISK: local
+            MAIL_MAILER: log
+            # The pages are drawn in the browser: no Node process runs on the server.
+            INERTIA_SSR_ENABLED: 'false'
+            RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+            BACKUP_BEFORE_MIGRATIONS: ${BACKUP_BEFORE_MIGRATIONS:-true}
+            # The safety copies before a deploy, next to the database.
+            DEPLOY_BACKUP_PATH: /var/www/html/storage/database/before-deploy
+            DEPLOY_BACKUPS_TO_KEEP: ${DEPLOY_BACKUPS_TO_KEEP:-3}
+            # The speech-to-text and voice services (docs/deployment.md). The
+            # drivers default to the real Gemini ones here, never to `fake`:
+            # an empty placeholder would hand the app an empty driver instead
+            # of a default, so each has a real value. The app refuses to start
+            # with a fake driver, or a real one without its key (php artisan speech:check).
+            SPEECH_TO_TEXT_DRIVER: ${SPEECH_TO_TEXT_DRIVER:-gemini}
+            TEXT_TO_SPEECH_DRIVER: ${TEXT_TO_SPEECH_DRIVER:-gemini}
+            GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+            GEMINI_TRANSCRIBE_MODEL: ${GEMINI_TRANSCRIBE_MODEL:-gemini-3.5-transcribe}
+            GEMINI_TTS_MODEL: ${GEMINI_TTS_MODEL:-gemini-3.8-flash-tts}
+            GEMINI_TTS_VOICE: ${GEMINI_TTS_VOICE:-Kore}
+            # Only for an aisha driver (the VoiceLab developer API): one vlk_ key
+            # for listening and the voice, the API's base URL, and the voice's
+            # model, voice (empty: the first Uzbek voice listed) and slow speed.
+            AISHA_API_KEY: ${AISHA_API_KEY:-}
+            AISHA_BASE_URL: ${AISHA_BASE_URL:-https://api.voicelab.uz}
+            AISHA_TTS_MODEL: ${AISHA_TTS_MODEL:-lison}
+            AISHA_TTS_VOICE: ${AISHA_TTS_VOICE:-}
+            AISHA_TTS_SLOW_SPEED: ${AISHA_TTS_SLOW_SPEED:-0.8}
+            # Only for SPEECH_TO_TEXT_DRIVER=chirp: Google Cloud Speech-to-Text,
+            # signed in with a service account key file kept on the app-storage
+            # volume (never served: nginx serves only storage/app/public).
+            CHIRP_MODEL: ${CHIRP_MODEL:-chirp_3}
+            CHIRP_LOCATION: ${CHIRP_LOCATION:-us}
+            CHIRP_PROJECT_ID: ${CHIRP_PROJECT_ID:-}
+            GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/var/www/html/storage/app/private/google-service-account.json}
+            # Kept for the Azure fallback voice, which isn't built: nothing reads them yet.
+            AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY:-}
+            AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION:-}
+        volumes:
+            # storage/app: the voice clips for Syllable help (app/public). They
+            # outlive every redeploy; back this volume up. Children's recordings
+            # are never saved (ADR-0002).
+            - app-storage:/var/www/html/storage/app
+            # The SQLite database and its safety copies before deploys. Back
+            # this volume up too.
+            - database:/var/www/html/storage/database
+        healthcheck:
+            # Ready once the database is up to date (see docker/start-container.sh)
+            # and PHP-FPM accepts connections.
+            test:
+                [
+                    'CMD-SHELL',
+                    'test -f /tmp/ready && php -r ''exit(@fsockopen("127.0.0.1", 9000) ? 0 : 1);''',
+                ]
+            interval: 5s
+            timeout: 3s
+            retries: 60
+            start_period: 15s
+
+    nginx:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: web
+        image: oqi-ai-web
+        restart: unless-stopped
+        logging: *logging
+        stop_grace_period: 30s
+        cpus: ${WEB_CPUS:-0.5}
+        mem_limit: ${WEB_MEMORY:-128M}
+        depends_on:
+            oqi-php:
+                condition: service_healthy
+        # Coolify's proxy sends the domain's traffic here: set the domain on
+        # this service, with port 8080.
+        expose:
+            - '8080'
+        volumes:
+            # Read only, for the voice clips under /storage.
+            - app-storage:/var/www/html/storage/app:ro
+        healthcheck:
+            test:
+                [
+                    'CMD-SHELL',
+                    'wget -q -O /dev/null http://127.0.0.1:8080/up || exit 1',
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 6
+            start_period: 10s
+
+volumes:
+    app-storage:
+    database:

@@ -4,14 +4,14 @@
 
 **Blocked by:** 05, 06
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Days practised this week = distinct Tashkent days (Monday–Sunday) with at least one finished Reading.
-- [ ] Stories finished this week.
-- [ ] Reading speed = average of finished Readings per week, for this week and the three before, shown as a trend.
-- [ ] Hard words = words with a "correct on retry" or "needed Syllable help" result in the last 7 days, grouped by normalised word, top 5 by count.
-- [ ] Streak and Stars total match the Child home.
-- [ ] Empty state when the Child hasn't read yet. Switching between Children.
-- [ ] A notice that the voice is AI-generated and recordings are not kept.
-- [ ] Only the Parent's own Children are shown.
-- [ ] HTTP feature tests with factories and frozen time cover each figure, including week boundaries and the 7-day window.
+- [x] Days practised this week = distinct Tashkent days (Monday–Sunday) with at least one finished Reading.
+- [x] Stories finished this week.
+- [x] Reading speed = average of finished Readings per week, for this week and the three before, shown as a trend.
+- [x] Hard words = words with a "correct on retry" or "needed Syllable help" result in the last 7 days, grouped by normalised word, top 5 by count.
+- [x] Streak and Stars total match the Child home.
+- [x] Empty state when the Child hasn't read yet. Switching between Children.
+- [x] A notice that the voice is AI-generated and recordings are not kept.
+- [x] Only the Parent's own Children are shown.
+- [x] HTTP feature tests with factories and frozen time cover each figure, including week boundaries and the 7-day window.

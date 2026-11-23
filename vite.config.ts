@@ -13,8 +13,11 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
             fonts: [
-                bunny('Instrument Sans', {
+                bunny('Inter', {
                     weights: [400, 500, 600],
+                }),
+                bunny('Nunito', {
+                    weights: [600, 700, 800],
                 }),
             ],
         }),
@@ -64,6 +67,17 @@ export default defineConfig({
         singleAttributePerLine: false,
         htmlWhitespaceSensitivity: 'css',
         ignorePatterns: [
+            // Agent tooling, the spec and tickets: generated or hand-kept
+            // outside the app's own style, and not part of the app.
+            '.agents/**',
+            '.claude/**',
+            '.scratch/**',
+            'docs/agents/**',
+            '.mcp.json',
+            'AGENTS.md',
+            'CLAUDE.md',
+            'boost.json',
+            'skills-lock.json',
             '.github/**',
             'composer.json',
             'resources/js/components/ui/*',

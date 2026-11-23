@@ -2,6 +2,7 @@
 
 namespace App\Actions\Fortify;
 
+use App\Concerns\NormalizesPhoneNumbers;
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Models\User;
@@ -10,24 +11,28 @@ use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 class CreateNewUser implements CreatesNewUsers
 {
-    use PasswordValidationRules, ProfileValidationRules;
+    use NormalizesPhoneNumbers, PasswordValidationRules, ProfileValidationRules;
 
     /**
-     * Validate and create a newly registered user.
+     * Validate and create a newly registered Parent.
      *
-     * @param  array<string, string>  $input
+     * @param  array<string, mixed>  $input
      */
     public function create(array $input): User
     {
-        Validator::make($input, [
+        $input['phone'] = $this->normalizePhoneNumber($input['phone'] ?? null);
+
+        $validated = Validator::make($input, [
             ...$this->profileRules(),
-            'password' => $this->passwordRules(),
+            'password' => $this->newPasswordRules(),
+        ], [
+            'phone.unique' => __('This phone number is already registered. If you have an account, log in.'),
         ])->validate();
 
         return User::create([
-            'name' => $input['name'],
-            'email' => $input['email'],
-            'password' => $input['password'],
+            'name' => $validated['name'],
+            'phone' => $validated['phone'],
+            'password' => $validated['password'],
         ]);
     }
 }

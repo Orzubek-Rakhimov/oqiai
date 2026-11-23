@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-react';
+import { LayoutGrid, Menu, Search, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { Breadcrumbs } from '@/components/breadcrumbs';
@@ -32,7 +32,8 @@ import { UserMenuContent } from '@/components/user-menu-content';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useInitials } from '@/hooks/use-initials';
 import { cn, toUrl } from '@/lib/utils';
-import { dashboard } from '@/routes';
+import { picker } from '@/routes';
+import { home as parentHome } from '@/routes/parent';
 import type { BreadcrumbItem, NavItem } from '@/types';
 
 type Props = {
@@ -41,24 +42,18 @@ type Props = {
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Dashboard',
-        href: dashboard(),
+        title: 'Ota-ona paneli',
+        href: parentHome(),
         icon: LayoutGrid,
+    },
+    {
+        title: "Kim o'qiyapti?",
+        href: picker(),
+        icon: Users,
     },
 ];
 
-const rightNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
-];
+const rightNavItems: NavItem[] = [];
 
 const activeItemStyles =
     'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
@@ -90,10 +85,10 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                 className="flex h-full w-64 flex-col items-stretch justify-between bg-sidebar"
                             >
                                 <SheetTitle className="sr-only">
-                                    Navigation menu
+                                    Menyu
                                 </SheetTitle>
                                 <SheetHeader className="flex justify-start text-left">
-                                    <AppLogoIcon className="h-6 w-6 fill-current text-black dark:text-white" />
+                                    <AppLogoIcon className="h-6 w-6 text-primary" />
                                 </SheetHeader>
                                 <div className="flex h-full flex-1 flex-col space-y-4 p-4">
                                     <div className="flex h-full flex-col justify-between text-sm">
@@ -135,7 +130,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                     </div>
 
                     <Link
-                        href={dashboard()}
+                        href={picker()}
                         prefetch
                         className="flex items-center space-x-2"
                     >

@@ -1,0 +1,7 @@
+title: Dengiz bo'yida
+level: 3
+minutes: 4
+---
+Biz kutubxonaga bordik. Keyin dengiz bo'yida o'ynadik.
+---
+dengiz: den-giz
