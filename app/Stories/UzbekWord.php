@@ -32,6 +32,15 @@ final class UzbekWord
     }
 
     /**
+     * Get a word as the Story writes it, without the punctuation around it:
+     * "keldi." gives "keldi" and "o‘yinchoq," gives "o‘yinchoq".
+     */
+    public static function asWritten(string $text): string
+    {
+        return (string) preg_replace('/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/u', '', $text);
+    }
+
+    /**
      * Split a normalised word into syllables by the Uzbek rule: o', g', sh,
      * ch and ng are single letters; every syllable holds one vowel; a lone
      * consonant between vowels starts the next syllable, and of a cluster

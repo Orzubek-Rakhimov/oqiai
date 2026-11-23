@@ -113,7 +113,7 @@ test('reading speed is the average of finished readings for this week and each o
     );
 });
 
-test('hard words are the words needing a retry or syllable help in the last 7 days, grouped and ranked, top 5', function () {
+test('hard words are the words needing a retry or syllable help in the last 7 days, grouped and ranked, top 5, shown as the story writes them', function () {
     $this->artisan('stories:load', ['--path' => base_path('tests/Fixtures/stories')])->assertSuccessful();
     test()->travelTo(tashkent('2026-03-10 12:00'));
     $story = Story::query()->where('slug', 'ali-va-mushuk')->firstOrFail();
@@ -143,11 +143,27 @@ test('hard words are the words needing a retry or syllable help in the last 7 da
 
     parentScreenFor($child)->assertInertia(fn (Assert $page) => $page
         ->where('progress.hardWords', [
-            ['word' => 'mushuk', 'count' => 3],
-            ['word' => 'ali', 'count' => 2],
+            ['word' => 'Mushuk', 'count' => 3],
+            ['word' => 'Ali', 'count' => 2],
             ['word' => 'keldi', 'count' => 2],
             ['word' => 'bilan', 'count' => 1],
             ['word' => 'dedi', 'count' => 1],
+        ]),
+    );
+});
+
+test('a hard word keeps its apostrophe as written and loses the punctuation around it', function () {
+    $this->artisan('stories:load', ['--path' => base_path('tests/Fixtures/stories')])->assertSuccessful();
+    $story = Story::query()->where('slug', 'ali-va-mushuk')->firstOrFail();
+    $reading = Reading::factory()->for(Child::factory())->for($story)->create();
+
+    wordResultFor($reading, "o'yinchoq", WordOutcome::NeededSyllableHelp, now()->subHour());
+    wordResultFor($reading, "o'ynadi", WordOutcome::CorrectOnRetry, now()->subHour());
+
+    parentScreenFor($reading->child)->assertInertia(fn (Assert $page) => $page
+        ->where('progress.hardWords', [
+            ['word' => 'o‘yinchoq', 'count' => 1],
+            ['word' => "o'ynadi", 'count' => 1],
         ]),
     );
 });

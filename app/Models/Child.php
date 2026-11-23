@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Avatar;
 use App\Enums\WordOutcome;
+use App\Stories\UzbekWord;
 use Carbon\CarbonImmutable;
 use Database\Factories\ChildFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -169,26 +170,34 @@ class Child extends Model
     /**
      * Get the Child's Hard words: words with a "correct on retry" or "needed
      * Syllable help" result in the last 7 days, grouped by normalised word and
-     * ranked by how often, then alphabetically.
+     * ranked by how often, then alphabetically. Each is shown as a Story writes
+     * it (the earliest of its hard occurrences), without the punctuation around it.
      *
      * @return list<array{word: string, count: int}>
      */
     public function hardWords(int $limit = 5): array
     {
-        return array_values(WordResult::query()
+        $hardWords = WordResult::query()
             ->join('readings', 'readings.id', '=', 'word_results.reading_id')
             ->join('words', 'words.id', '=', 'word_results.word_id')
             ->where('readings.child_id', $this->id)
             ->whereIn('word_results.outcome', [WordOutcome::CorrectOnRetry, WordOutcome::NeededSyllableHelp])
             ->where('word_results.recorded_at', '>=', now()->subDays(7))
             ->groupBy('words.normalized')
-            ->selectRaw('words.normalized as word, count(*) as times')
+            ->selectRaw('words.normalized, min(words.id) as first_word_id, count(*) as times')
             ->orderByDesc('times')
-            ->orderBy('word')
+            ->orderBy('words.normalized')
             ->limit($limit)
             ->toBase()
-            ->get()
-            ->map(fn (object $hardWord): array => ['word' => (string) $hardWord->word, 'count' => (int) $hardWord->times])
+            ->get();
+
+        $writtenForms = Word::query()->whereKey($hardWords->pluck('first_word_id'))->pluck('text', 'id');
+
+        return array_values($hardWords
+            ->map(fn (object $hardWord): array => [
+                'word' => UzbekWord::asWritten((string) $writtenForms->get((int) $hardWord->first_word_id)),
+                'count' => (int) $hardWord->times,
+            ])
             ->all());
     }
 

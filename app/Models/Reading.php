@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\WordOutcome;
 use App\Speech\WordClips;
+use App\Stories\UzbekWord;
 use Database\Factories\ReadingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -196,7 +197,7 @@ class Reading extends Model
             ->orderBy('words.position')
             ->get(['words.text', 'words.normalized'])
             ->unique('normalized')
-            ->map(fn (Word $word): string => (string) preg_replace('/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/u', '', $word->text))
+            ->map(fn (Word $word): string => UzbekWord::asWritten($word->text))
             ->all());
     }
 
