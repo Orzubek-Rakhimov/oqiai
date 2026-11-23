@@ -19,7 +19,7 @@ final class ReadingScreen
      * Get the state the reading screen moves on to after a sentence, a retry
      * or Syllable help.
      *
-     * @return array{pendingWord: array{stage: 'retry'|'syllable_help', sentence: int, position: int, text: string, syllables: list<string>, clips: array{syllables: string|null, word: string|null}}|null, progress: array{read: int, total: int}, nextSentence: array{position: int, words: list<string>}|null}
+     * @return array{pendingWord: array{stage: 'retry'|'syllable_help', sentence: int, position: int, text: string, syllables: list<string>, clip: string|null}|null, progress: array{read: int, total: int}, nextSentence: array{position: int, words: list<string>}|null}
      */
     public static function afterStep(Reading $reading): array
     {
@@ -50,9 +50,9 @@ final class ReadingScreen
 
     /**
      * Get the Reading's pending word as the reading screen shows it, with the
-     * URLs of its voice clips, or null when there is none.
+     * URL of its voice clip, or null when there is none.
      *
-     * @return array{stage: 'retry'|'syllable_help', sentence: int, position: int, text: string, syllables: list<string>, clips: array{syllables: string|null, word: string|null}}|null
+     * @return array{stage: 'retry'|'syllable_help', sentence: int, position: int, text: string, syllables: list<string>, clip: string|null}|null
      */
     public static function pendingWord(Reading $reading): ?array
     {
@@ -68,7 +68,7 @@ final class ReadingScreen
             'position' => $word->position,
             'text' => $word->text,
             'syllables' => $word->syllables,
-            'clips' => WordClips::urls($word),
+            'clip' => WordClips::url($word),
         ];
     }
 }

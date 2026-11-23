@@ -9,6 +9,7 @@ use App\Http\Requests\Child\SentenceRequest;
 use App\Models\Reading;
 use App\Models\Word;
 use App\Speech\SpeechToText;
+use App\Speech\WordClips;
 use App\Stories\WordMatcher;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\Gate;
  * Scores one sentence read aloud: asks speech-to-text what the Child said,
  * matches it against the sentence and returns a mark per word. The audio
  * is passed on and dropped with the request, never stored (ADR-0002).
+ * The misread words' voice clips are made once the answer is sent, so they
+ * are usually ready if a word goes on to need Syllable help.
  */
 class SentenceController extends Controller
 {
@@ -28,7 +31,7 @@ class SentenceController extends Controller
      * Score the Reading's next sentence. It is offered only once the previous
      * sentence's misread words have had their retry or Syllable help.
      */
-    public function store(SentenceRequest $request, Reading $reading, SpeechToText $speechToText): JsonResponse
+    public function store(SentenceRequest $request, Reading $reading, SpeechToText $speechToText, WordClips $clips): JsonResponse
     {
         Gate::authorize('update', [$reading, $this->activeChild($request)]);
 
@@ -39,11 +42,13 @@ class SentenceController extends Controller
         $sentence = $reading->nextSentence();
         abort_if($sentence === null, 409);
 
-        return $this->scoreClip($speechToText, $request->file('audio'), $sentence->text, $reading, function (array $heard) use ($reading, $position, $request, $sentence): array {
+        return $this->scoreClip($speechToText, $request->file('audio'), $sentence->text, $reading, function (array $heard) use ($reading, $position, $request, $sentence, $clips): array {
             $words = $sentence->words;
             $marks = WordMatcher::match(array_values($words->map(fn (Word $word): string => $word->normalized)->all()), $heard);
 
             abort_unless($this->record($reading, $position, $request->integer('duration_ms'), $words, $marks), 409);
+
+            $clips->makeAfterResponse($words->reject(fn (Word $word, int $index): bool => $marks[$index]));
 
             return [
                 'marks' => $words->map(fn (Word $word, int $index): array => [

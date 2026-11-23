@@ -23,7 +23,9 @@ journal, a 5-second wait when the file is busy, foreign keys on). Sessions and
 the cache are kept in it too.
 
 There is no scheduler, no queue worker and no Redis: nothing runs on a
-schedule or in the background yet. Pages are drawn in the browser (no
+schedule, and the one piece of background work, making a word's voice clip
+the first time a Child needs it, runs in `oqi-php` just after the answer is
+sent to the Child (so it needs no worker). Pages are drawn in the browser (no
 server-side rendering), so no Node process runs on the server.
 
 Two volumes hold what must outlive a redeploy:
@@ -94,20 +96,37 @@ choose the `oqi-php` service, and load the Stories from `resources/stories`
 
 ```bash
 php artisan stories:load
-php artisan audio:generate
 ```
 
-Run both again after every deploy that adds or changes a Story file.
-`audio:generate` makes the Syllable help clips that are still missing (each
-word's syllables read slowly with pauses, and the whole word read slowly) and
-keeps the ones that exist. The clips land in the `app-storage` volume and
-outlive every redeploy. **Listen to every new clip** before Children use it
-(they are under `https://<domain>/storage/audio/syllables/` and
-`https://<domain>/storage/audio/words/`): a syllable read as a letter name,
-or a word read too fast, teaches the wrong sound. If one word sounds wrong,
-make its clips again with `php artisan audio:generate <word>`, and listen
-again. Never run the database seeder on the
-server: it creates a login with a known password.
+Run it again after every deploy that adds or changes a Story file.
+
+The Syllable help voice clips need no command: a word's clip (its syllables
+read slowly with pauses, then the whole word, from one voice request) is made
+the first time a Child misreads the word, just after the answer is sent, and
+kept for every Child after that. The first Child to need a word may wait a few
+seconds for "Tinglash" to appear, and hears that clip before anyone has
+checked it. If the voice service fails or is rate limited (a `429`, as the
+first Gemini key was at 3 requests a minute), the Child reads on without
+"Tinglash", and the word is tried again later: after the wait the service
+asks for (`Retry-After`), or else after 15 seconds, doubling up to 10 minutes.
+
+The clips land in the `app-storage` volume and outlive every redeploy. They
+are under `https://<domain>/storage/audio/clips/`, one per word, named by its
+syllables (`o'yinchoq` is `o_-yin-choq.wav`). **Listen to the new clips** now
+and then: a syllable read as a letter name, or a word read too fast, teaches
+the wrong sound. If one word sounds wrong, make its clip again with
+`php artisan audio:generate <word>`, and listen again.
+
+Making every clip ahead is optional: `php artisan audio:generate` makes the
+clip of each Story word that has none and keeps the ones that exist. With a
+rate-limited key it waits as long as the service asks (or a minute) between
+tries, so several hundred words can take hours. Clips from before this
+version (the `audio/syllables` and `audio/words` folders) are no longer used
+and can be removed with `rm -r storage/app/public/audio/syllables
+storage/app/public/audio/words`.
+
+Never run the database seeder on the server: it creates a login with a known
+password.
 
 ### 4. Check it
 
@@ -186,9 +205,10 @@ server, by hand or with the VPS provider's snapshots:
 
 - **`database`**: the SQLite file and its safety copies. This is the one that
   matters: Parents, Children and every Reading.
-- **`app-storage`**: the voice clips. They can also be made again with the
-  `audio:generate` command, but that costs time and money with the voice service, and
-  each clip was checked by ear.
+- **`app-storage`**: the voice clips. Lost clips are made again when
+  Children next need them (or with the `audio:generate` command), but that
+  costs time and money with the voice service, and each clip was checked by
+  ear.
 
 To take a consistent copy of the database by hand (never copy
 `database.sqlite` with `cp` while the app is running), run this in the
@@ -289,8 +309,9 @@ same settings in `.env` work with `composer run dev`.
 Clips already made keep the old voice after `GEMINI_TTS_MODEL` or
 `GEMINI_TTS_VOICE` changes. Make them again one word at a time with
 `php artisan audio:generate <word>`, or remove `storage/app/public/audio` in
-the `oqi-php` terminal and run `php artisan audio:generate`. Then **listen to
-every clip**, as in [step 3](#3-the-stories-and-their-voice-clips).
+the `oqi-php` terminal: each clip is then made again in the new voice when a
+Child next needs it (or all at once with `php artisan audio:generate`). Then
+**listen to the clips**, as in [step 3](#3-the-stories-and-their-voice-clips).
 
 ## Settings worth knowing
 
@@ -329,8 +350,9 @@ every clip**, as in [step 3](#3-the-stories-and-their-voice-clips).
   secrets. Nothing in the repository or the images holds one.
 - **The microphone** is allowed for the app's own pages only (nginx sends
   `Permissions-Policy: microphone=(self)`).
-- **A scheduler or queue worker** is not running. If a later version needs
-  one, add a service like ITPlaza's `scheduler` with the same image, the
+- **A scheduler or queue worker** is not running (the voice clips are made
+  in `oqi-php` after the answer is sent, so they need neither). If a later
+  version needs one, add a service like ITPlaza's `scheduler` with the same image, the
   `database` volume, and the command `php artisan schedule:work` (or
   `queue:work`, and set `QUEUE_CONNECTION` to `database`).
 - **Building the images on your PC:** `docker build --target app .` and

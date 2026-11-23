@@ -2,6 +2,7 @@ import { router, useHttp } from '@inertiajs/react';
 import { Loader2, Mic, Square, Volume2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useSentenceRecorder } from '@/hooks/use-sentence-recorder';
+import { useWordClip } from '@/hooks/use-word-clip';
 import type { Recording } from '@/hooks/use-sentence-recorder';
 import { cn } from '@/lib/utils';
 import { show as showReading } from '@/routes/readings';
@@ -236,7 +237,8 @@ function WordRetry({ readingId, word, onDone }: Props) {
 
 /**
  * Syllable help: the word split into syllables, "Tinglash" to hear them
- * and then the whole word (only once the clips exist), and one more
+ * and then the whole word (only once its clip exists, which may be made
+ * while Syllable help is open), and one more
  * unscored read by the Child before the Story continues.
  */
 function SyllableHelp({ readingId, word, onDone }: Props) {
@@ -255,35 +257,24 @@ function SyllableHelp({ readingId, word, onDone }: Props) {
         finish();
     });
 
-    const clips = [word.clips.syllables, word.clips.word].filter(
-        (clip): clip is string => clip !== null,
-    );
+    const clip = useWordClip(readingId, word.clip);
 
     function play(): void {
-        if (clips.length === 0 || playing) {
+        if (clip === null || playing) {
             return;
         }
 
         const audio = audioRef.current ?? new Audio();
         audioRef.current = audio;
-        let index = 0;
 
-        const playNext = (): void => {
-            if (index >= clips.length) {
-                setPlaying(false);
-                setHeard(true);
-
-                return;
-            }
-
-            audio.src = clips[index++];
-            audio.play().catch(() => setPlaying(false));
+        audio.onended = () => {
+            setPlaying(false);
+            setHeard(true);
         };
-
-        audio.onended = playNext;
         audio.onerror = () => setPlaying(false);
+        audio.src = clip;
         setPlaying(true);
-        playNext();
+        audio.play().catch(() => setPlaying(false));
     }
 
     function finish(): void {
@@ -361,7 +352,7 @@ function SyllableHelp({ readingId, word, onDone }: Props) {
             </div>
 
             <div className="mt-auto flex flex-col gap-3 pt-6 pb-4">
-                {clips.length > 0 && (
+                {clip !== null && (
                     <button
                         type="button"
                         onClick={play}

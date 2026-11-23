@@ -8,11 +8,11 @@ php artisan stories:load
 
 The command creates new Stories, updates changed ones by slug and can be run again at any time. Files are UTF-8.
 
-Then make the voice clips for Syllable help. Clips that exist are kept, so only new words are voiced; name a word to make its clips again when it sounds wrong:
+The voice clips for Syllable help need no command: a word's clip is made the first time a Child misreads it and kept after that. Name a word to make its clip again when it sounds wrong. Making every missing clip ahead is optional (clips that exist are kept, so only new words are voiced):
 
 ```
-php artisan audio:generate
 php artisan audio:generate o'yinchoq
+php artisan audio:generate
 ```
 
 ## Format

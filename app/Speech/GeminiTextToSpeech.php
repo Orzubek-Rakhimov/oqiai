@@ -10,7 +10,9 @@ namespace App\Speech;
  * The pace goes in the speech_metadata style annotation and the pauses
  * between the parts as inline <short pause> / <long pause> tags. The model
  * finds the language from the text, so the request names none. It answers
- * with a WAV file (24 kHz, mono, 16-bit), which is saved as it is.
+ * with a WAV file (24 kHz, mono, 16-bit), which is saved as it is. A
+ * rate-limit or quota answer is told apart from other failures, with the
+ * wait the service asks for, so the clip can be tried again after it.
  */
 final readonly class GeminiTextToSpeech implements TextToSpeech
 {
@@ -18,7 +20,7 @@ final readonly class GeminiTextToSpeech implements TextToSpeech
 
     public function __construct(string $apiKey, private string $model, private string $voice, int $timeoutSeconds)
     {
-        $this->interactions = new GeminiInteractions($apiKey, $timeoutSeconds, TextToSpeechFailed::class);
+        $this->interactions = new GeminiInteractions($apiKey, $timeoutSeconds, TextToSpeechFailed::class, TextToSpeechRateLimited::class);
     }
 
     public function speak(array $parts, SpeakingOptions $options): string

@@ -41,7 +41,7 @@ test('a misread word gets a retry, and reading it right on the retry records it 
             'position' => 1,
             'text' => 'uyga',
             'syllables' => ['uy', 'ga'],
-            'clips' => ['syllables' => null, 'word' => null],
+            'clip' => null,
         ]);
 
     speech()->hears('uyga');
@@ -64,7 +64,7 @@ test('a misread word gets a retry, and reading it right on the retry records it 
     ])->and(speech()->requests()[1]['expectedText'])->toBe('uyga');
 });
 
-test('a word misread on its retry too opens Syllable help with its syllables and is recorded as needing Syllable help', function () {
+test('a word misread on its retry too opens Syllable help with its syllables and the clip made after its first misread, and is recorded as needing Syllable help', function () {
     speech()->hears('Ali uyda keldi', 'uyda');
 
     actingAsChild($this->child)->postJson(route('readings.sentences.store', $this->reading), sentenceClip(0));
@@ -80,7 +80,7 @@ test('a word misread on its retry too opens Syllable help with its syllables and
             'position' => 1,
             'text' => 'uyga',
             'syllables' => ['uy', 'ga'],
-            'clips' => ['syllables' => null, 'word' => null],
+            'clip' => '/storage/audio/clips/uy-ga.wav',
         ]);
 
     expect(outcomes($this->reading)['uyga'])->toBe(WordOutcome::NeededSyllableHelp);
@@ -93,12 +93,9 @@ test('a word misread on its retry too opens Syllable help with its syllables and
         );
 });
 
-test('Syllable help gets the URLs of the syllables clip and the whole-word clip once the audio is generated', function () {
-    $this->artisan('audio:generate')->assertSuccessful();
-    $clips = [
-        'syllables' => '/storage/audio/syllables/o_-yin-choq.wav',
-        'word' => '/storage/audio/words/o_yinchoq.wav',
-    ];
+test('Syllable help gets the URL of the word clip once it is made', function () {
+    $this->artisan('audio:generate', ['word' => "o'yinchoq"])->assertSuccessful();
+    $clip = '/storage/audio/clips/o_-yin-choq.wav';
     $this->reading->update(['next_sentence_position' => 1]);
     speech()->hears("Mushuk oyinchoq bilan o'ynadi", 'oyinchoq');
 
@@ -109,13 +106,13 @@ test('Syllable help gets the URLs of the syllables clip and the whole-word clip 
         ->assertOk()
         ->assertJsonPath('pendingWord.stage', 'syllable_help')
         ->assertJsonPath('pendingWord.text', 'o‘yinchoq')
-        ->assertJsonPath('pendingWord.clips', $clips);
+        ->assertJsonPath('pendingWord.clip', $clip);
 
     actingAsChild($this->child)
         ->get(route('readings.show', $this->reading))
         ->assertInertia(fn (Assert $page) => $page
             ->where('pendingWord.stage', 'syllable_help')
-            ->where('pendingWord.clips', $clips),
+            ->where('pendingWord.clip', $clip),
         );
 });
 

@@ -1,9 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Sleep;
 
 beforeEach(function () {
     Storage::fake('public');
+    Sleep::fake();
     $this->artisan('stories:load', ['--path' => base_path('tests/Fixtures/stories')])->assertSuccessful();
 });
 
@@ -17,46 +19,41 @@ function voicedTexts(): array
     return array_map(fn (array $request): string => implode(' | ', $request['parts']), voice()->requests());
 }
 
-test('generating the audio saves a slow syllables clip and a slow whole-word clip for every Story word', function () {
+test('generating the audio ahead is optional and saves one clip per Story word: its syllables read slowly, then the word', function () {
     $this->artisan('audio:generate')
         ->expectsOutputToContain('Created')
         ->assertSuccessful();
 
     Storage::disk('public')->assertExists([
-        'audio/syllables/uy-ga.wav',
-        'audio/words/uyga.wav',
-        'audio/syllables/o_-yin-choq.wav',
-        'audio/words/o_yinchoq.wav',
-        'audio/syllables/den-giz.wav',
-        'audio/words/dengiz.wav',
-        'audio/syllables/qush.wav',
-        'audio/words/qush.wav',
+        'audio/clips/uy-ga.wav',
+        'audio/clips/o_-yin-choq.wav',
+        'audio/clips/den-giz.wav',
+        'audio/clips/qush.wav',
     ]);
 
     expect(voice()->requests())->toContain(
-        ['parts' => ['uy', 'ga'], 'slowly' => true, 'pause' => 'long', 'language' => 'uz'],
-        ['parts' => ['uyga'], 'slowly' => true, 'pause' => 'long', 'language' => 'uz'],
+        ['parts' => ['uy', 'ga', 'uyga'], 'slowly' => true, 'pause' => 'long', 'language' => 'uz'],
+        ['parts' => ['qush', 'qush'], 'slowly' => true, 'pause' => 'long', 'language' => 'uz'],
     );
 });
 
-test('a word in several Stories, or several times in one, is voiced once and shares its clips', function () {
+test('a word in several Stories, or several times in one, is voiced once and shares its clip', function () {
     $this->artisan('audio:generate')->assertSuccessful();
 
     $texts = collect(voicedTexts());
 
-    expect($texts->filter(fn (string $text) => $text === 'kutubxonaga')->count())->toBe(1)
-        ->and($texts->filter(fn (string $text) => $text === 'ku | tub | xo | na | ga')->count())->toBe(1)
-        ->and($texts->filter(fn (string $text) => $text === 'mushuk')->count())->toBe(1);
+    expect($texts->filter(fn (string $text) => $text === 'ku | tub | xo | na | ga | kutubxonaga')->count())->toBe(1)
+        ->and($texts->filter(fn (string $text) => $text === 'mu | shuk | mushuk')->count())->toBe(1)
+        ->and($texts)->toHaveCount(count(Storage::disk('public')->allFiles()));
 });
 
-test('clips that already exist are skipped', function () {
-    Storage::disk('public')->put('audio/words/uyga.wav', 'old clip');
+test('clips that already exist, such as those made on first use, are skipped', function () {
+    Storage::disk('public')->put('audio/clips/uy-ga.wav', 'old clip');
 
     $this->artisan('audio:generate')->assertSuccessful();
 
-    expect(Storage::disk('public')->get('audio/words/uyga.wav'))->toBe('old clip')
-        ->and(voicedTexts())->not->toContain('uyga')
-        ->and(voicedTexts())->toContain('uy | ga');
+    expect(Storage::disk('public')->get('audio/clips/uy-ga.wav'))->toBe('old clip')
+        ->and(voicedTexts())->not->toContain('uy | ga | uyga');
 
     $requestsSoFar = count(voice()->requests());
 
@@ -67,21 +64,19 @@ test('clips that already exist are skipped', function () {
     expect(voice()->requests())->toHaveCount($requestsSoFar);
 });
 
-test('the clips of one named word can be regenerated, whatever its capitals and apostrophe', function () {
+test('the clip of one named word can be regenerated, whatever its capitals and apostrophe', function () {
     $this->artisan('audio:generate')->assertSuccessful();
-    Storage::disk('public')->put('audio/words/o_yinchoq.wav', 'old clip');
-    Storage::disk('public')->put('audio/syllables/o_-yin-choq.wav', 'old clip');
-    Storage::disk('public')->put('audio/words/uyga.wav', 'old clip');
+    Storage::disk('public')->put('audio/clips/o_-yin-choq.wav', 'old clip');
+    Storage::disk('public')->put('audio/clips/uy-ga.wav', 'old clip');
     $requestsSoFar = count(voice()->requests());
 
     $this->artisan('audio:generate', ['word' => 'O‘yinchoq'])
-        ->expectsOutputToContain('Created 2 clips')
+        ->expectsOutputToContain('Created 1 clip')
         ->assertSuccessful();
 
-    expect(Storage::disk('public')->get('audio/words/o_yinchoq.wav'))->not->toBe('old clip')
-        ->and(Storage::disk('public')->get('audio/syllables/o_-yin-choq.wav'))->not->toBe('old clip')
-        ->and(Storage::disk('public')->get('audio/words/uyga.wav'))->toBe('old clip')
-        ->and(array_slice(voicedTexts(), $requestsSoFar))->toBe(["o' | yin | choq", "o'yinchoq"]);
+    expect(Storage::disk('public')->get('audio/clips/o_-yin-choq.wav'))->not->toBe('old clip')
+        ->and(Storage::disk('public')->get('audio/clips/uy-ga.wav'))->toBe('old clip')
+        ->and(array_slice(voicedTexts(), $requestsSoFar))->toBe(["o' | yin | choq | o'yinchoq"]);
 });
 
 test('regenerating a word that is in no Story fails with a message', function () {
@@ -104,4 +99,29 @@ test('a clip the voice service fails on is not saved, and the rest are still gen
     $this->artisan('audio:generate')
         ->expectsOutputToContain('Created 1 clip')
         ->assertSuccessful();
+});
+
+test('when the voice service is rate limited, the command waits as long as it asks and tries the word again', function () {
+    voice()->rateLimited(retryAfterSeconds: 25)->rateLimited();
+
+    $this->artisan('audio:generate', ['word' => 'uyga'])
+        ->expectsOutputToContain('Created 1 clip')
+        ->assertSuccessful();
+
+    Storage::disk('public')->assertExists('audio/clips/uy-ga.wav');
+    expect(voice()->requests())->toHaveCount(3);
+    Sleep::assertSequence([Sleep::for(25)->seconds(), Sleep::for(60)->seconds()]);
+});
+
+test('a word still rate limited after several waits is reported as failed', function () {
+    foreach (range(1, 5) as $try) {
+        voice()->rateLimited(retryAfterSeconds: 10);
+    }
+
+    $this->artisan('audio:generate', ['word' => 'uyga'])
+        ->expectsOutputToContain('failed')
+        ->assertFailed();
+
+    Storage::disk('public')->assertMissing('audio/clips/uy-ga.wav');
+    expect(voice()->requests())->toHaveCount(5);
 });

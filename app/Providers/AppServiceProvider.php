@@ -67,11 +67,16 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Limit the clips each Parent account sends to the paid speech-to-text
      * service: sentences, retries and microphone checks share one budget.
+     * Syllable help asks for a missing voice clip every few seconds, so it
+     * has a budget of its own.
      */
     protected function configureRateLimiting(): void
     {
         RateLimiter::for('speech-to-text', fn (Request $request): Limit => Limit::perMinute(30)
             ->by('speech-to-text|'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        RateLimiter::for('word-clips', fn (Request $request): Limit => Limit::perMinute(30)
+            ->by('word-clips|'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
     }
 
     /**
