@@ -17,7 +17,7 @@ test('a parent signs up with name, phone number and password and is logged in', 
     ]);
 
     $response->assertSessionHasNoErrors()
-        ->assertRedirect(route('dashboard', absolute: false));
+        ->assertRedirect(route('children.create', absolute: false));
 
     $this->assertAuthenticated();
 

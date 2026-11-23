@@ -23,6 +23,7 @@ return [
     'boolean' => ':Attribute ha yoki yo\'q bo\'lishi kerak.',
     'confirmed' => ':Attribute tasdig\'i mos kelmadi.',
     'current_password' => 'Parol noto\'g\'ri.',
+    'enum' => 'Tanlangan :attribute noto\'g\'ri.',
     'exists' => 'Tanlangan :attribute topilmadi.',
     'file' => ':Attribute fayl bo\'lishi kerak.',
     'in' => 'Tanlangan :attribute noto\'g\'ri.',
@@ -74,7 +75,9 @@ return [
     */
 
     'attributes' => [
+        'avatar' => 'rasm',
         'current_password' => 'joriy parol',
+        'grade' => 'sinf',
         'name' => 'ism',
         'password' => 'parol',
         'password_confirmation' => 'parol tasdig\'i',

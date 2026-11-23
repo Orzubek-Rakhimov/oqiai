@@ -21,7 +21,7 @@ test('a parent logs in with their phone number typed in any local form', functio
     ]);
 
     $response->assertSessionHasNoErrors()
-        ->assertRedirect(route('dashboard', absolute: false));
+        ->assertRedirect(route('picker', absolute: false));
 
     $this->assertAuthenticatedAs($parent);
 })->with([
