@@ -93,12 +93,16 @@ choose the `oqi-php` service, and load the Stories from `resources/stories`
 
 ```bash
 php artisan stories:load
+php artisan audio:generate
 ```
 
-Run it again after every deploy that adds or changes a Story file. Once the
-voice clips command exists (ticket 07), make the clips there too: they land
-in the `app-storage` volume and outlive every redeploy. Never run the
-database seeder on the server: it creates a login with a known password.
+Run both again after every deploy that adds or changes a Story file.
+`audio:generate` makes the Syllable help clips that are still missing (each
+word's syllables read slowly with pauses, and the whole word read slowly) and
+keeps the ones that exist. The clips land in the `app-storage` volume and
+outlive every redeploy. If one word sounds wrong, make its clips again with
+`php artisan audio:generate <word>`. Never run the database seeder on the
+server: it creates a login with a known password.
 
 ### 4. Check it
 
@@ -178,7 +182,7 @@ server, by hand or with the VPS provider's snapshots:
 - **`database`**: the SQLite file and its safety copies. This is the one that
   matters: Parents, Children and every Reading.
 - **`app-storage`**: the voice clips. They can also be made again with the
-  audio command, but that costs time and money with the voice service, and
+  `audio:generate` command, but that costs time and money with the voice service, and
   each clip was checked by ear.
 
 To take a consistent copy of the database by hand (never copy

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\WordOutcome;
+use App\Speech\WordClips;
 use Database\Factories\ReadingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -125,7 +126,7 @@ class Reading extends Model
             'position' => $word->position,
             'text' => $word->text,
             'syllables' => $word->syllables,
-            'clips' => ['syllables' => null, 'word' => null],
+            'clips' => WordClips::urls($word),
         ];
     }
 
