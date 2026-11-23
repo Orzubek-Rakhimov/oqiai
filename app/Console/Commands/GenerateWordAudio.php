@@ -12,6 +12,7 @@ use App\Stories\UzbekWord;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -75,7 +76,7 @@ class GenerateWordAudio extends Command
     private function words(?string $normalized): array
     {
         return array_values(Word::query()
-            ->when($normalized !== null, fn ($query) => $query->where('normalized', $normalized))
+            ->when($normalized !== null, fn (Builder $query) => $query->where('normalized', $normalized))
             ->orderBy('id')
             ->get(['normalized', 'syllables'])
             ->map(fn (Word $word): array => ['normalized' => $word->normalized, 'syllables' => $word->syllables])

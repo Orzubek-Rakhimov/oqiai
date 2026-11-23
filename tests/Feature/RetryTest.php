@@ -4,6 +4,7 @@ use App\Enums\WordOutcome;
 use App\Models\Child;
 use App\Models\Reading;
 use App\Models\Story;
+use App\Models\WordResult;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -24,7 +25,7 @@ beforeEach(function () {
 function outcomes(Reading $reading): array
 {
     return $reading->wordResults()->with('word')->get()
-        ->mapWithKeys(fn ($result) => [$result->word->text => $result->outcome])
+        ->mapWithKeys(fn (WordResult $result): array => [$result->word->text => $result->outcome])
         ->all();
 }
 
