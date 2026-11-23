@@ -4,9 +4,11 @@ use App\Enums\WordOutcome;
 use App\Models\Child;
 use App\Models\Reading;
 use App\Models\Story;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
+    Storage::fake('public');
     $this->artisan('stories:load', ['--path' => base_path('tests/Fixtures/stories')])->assertSuccessful();
     $this->story = Story::firstWhere('slug', 'ali-va-mushuk');
     $this->child = Child::factory()->create();
@@ -86,6 +88,32 @@ test('a word misread on its retry too opens Syllable help with its syllables and
         ->assertInertia(fn (Assert $page) => $page
             ->where('pendingWord.stage', 'syllable_help')
             ->where('pendingWord.syllables', ['uy', 'ga']),
+        );
+});
+
+test('Syllable help gets the URLs of the syllables clip and the whole-word clip once the audio is generated', function () {
+    $this->artisan('audio:generate')->assertSuccessful();
+    $clips = [
+        'syllables' => '/storage/audio/syllables/o_-yin-choq.wav',
+        'word' => '/storage/audio/words/o_yinchoq.wav',
+    ];
+    $this->reading->update(['next_sentence_position' => 1]);
+    speech()->hears("Mushuk oyinchoq bilan o'ynadi", 'oyinchoq');
+
+    actingAsChild($this->child)->postJson(route('readings.sentences.store', $this->reading), sentenceClip(1));
+
+    actingAsChild($this->child)
+        ->postJson(route('readings.retries.store', $this->reading), wordClip(1, 1))
+        ->assertOk()
+        ->assertJsonPath('pendingWord.stage', 'syllable_help')
+        ->assertJsonPath('pendingWord.text', 'o‘yinchoq')
+        ->assertJsonPath('pendingWord.clips', $clips);
+
+    actingAsChild($this->child)
+        ->get(route('readings.show', $this->reading))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('pendingWord.stage', 'syllable_help')
+            ->where('pendingWord.clips', $clips),
         );
 });
 

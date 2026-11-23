@@ -43,4 +43,12 @@ return [
         'driver' => env('SPEECH_TO_TEXT_DRIVER', 'fake'),
     ],
 
+    /*
+    | The text-to-speech driver that voices the Syllable help clips. "fake"
+    | makes short silent clips (tests, local demos) and needs no service.
+    */
+    'text_to_speech' => [
+        'driver' => env('TEXT_TO_SPEECH_DRIVER', 'fake'),
+    ],
+
 ];
