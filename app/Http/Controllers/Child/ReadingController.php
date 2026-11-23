@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Child;
 
 use App\Http\Controllers\Controller;
+use App\Http\Presenters\ReadingScreen;
 use App\Models\Reading;
 use App\Models\Story;
 use Illuminate\Http\RedirectResponse;
@@ -47,8 +48,8 @@ class ReadingController extends Controller
             'reading' => ['id' => $reading->id],
             'story' => $reading->story->only(['id', 'title']),
             'progress' => $reading->progress(),
-            'sentence' => $reading->nextSentence()?->toReaderArray(),
-            'pendingWord' => $reading->pendingWordForReader(),
+            'sentence' => ReadingScreen::sentence($reading->nextSentence()),
+            'pendingWord' => ReadingScreen::pendingWord($reading),
         ]);
     }
 

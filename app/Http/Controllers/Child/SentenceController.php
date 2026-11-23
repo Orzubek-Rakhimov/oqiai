@@ -9,8 +9,8 @@ use App\Http\Requests\Child\SentenceRequest;
 use App\Models\Reading;
 use App\Models\Word;
 use App\Speech\SpeechToText;
-use App\Speech\SpeechToTextFailed;
 use App\Stories\WordMatcher;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -39,26 +39,36 @@ class SentenceController extends Controller
         $sentence = $reading->nextSentence();
         abort_if($sentence === null, 409);
 
-        try {
-            $heard = $this->hear($speechToText, $request->file('audio'), $sentence->text);
-        } catch (SpeechToTextFailed $failure) {
-            report($failure);
+        return $this->scoreClip($speechToText, $request->file('audio'), $sentence->text, $reading, function (array $heard) use ($reading, $position, $request, $sentence): array {
+            $words = $sentence->words;
+            $marks = WordMatcher::match(array_values($words->map(fn (Word $word): string => $word->normalized)->all()), $heard);
 
-            return $this->unheard('service_failed');
-        }
+            abort_unless($this->record($reading, $position, $request->integer('duration_ms'), $words, $marks), 409);
 
-        if ($heard === []) {
-            return $this->unheard('nothing_heard');
-        }
+            return [
+                'marks' => $words->map(fn (Word $word, int $index): array => [
+                    'word' => $word->text,
+                    'correct' => $marks[$index],
+                ])->values()->all(),
+            ];
+        });
+    }
 
-        $words = $sentence->words;
-        $marks = WordMatcher::match(array_values($words->map(fn (Word $word): string => $word->normalized)->all()), $heard);
-
-        $scored = DB::transaction(function () use ($reading, $position, $request, $words, $marks): bool {
+    /**
+     * Record the sentence as read: add its time, move on to the next sentence,
+     * queue its misread words for their retry and record the words read right
+     * the first time. Returns false when another request already scored it.
+     *
+     * @param  Collection<int, Word>  $words
+     * @param  list<bool>  $marks
+     */
+    private function record(Reading $reading, int $position, int $durationMs, Collection $words, array $marks): bool
+    {
+        return DB::transaction(function () use ($reading, $position, $durationMs, $words, $marks): bool {
             $advanced = Reading::query()
                 ->whereKey($reading->id)
                 ->where('next_sentence_position', $position)
-                ->increment('reading_time_ms', $request->integer('duration_ms'), [
+                ->increment('reading_time_ms', $durationMs, [
                     'next_sentence_position' => $position + 1,
                     'pending_retry_word_ids' => json_encode(array_values(
                         $words->reject(fn (Word $word, int $index): bool => $marks[$index])->modelKeys(),
@@ -80,21 +90,5 @@ class SentenceController extends Controller
 
             return true;
         });
-
-        abort_unless($scored, 409);
-
-        $reading->refresh();
-        $reading->finishIfComplete();
-
-        return response()->json([
-            'status' => 'scored',
-            'marks' => $words->map(fn (Word $word, int $index): array => [
-                'word' => $word->text,
-                'correct' => $marks[$index],
-            ])->values()->all(),
-            'pendingWord' => $reading->pendingWordForReader(),
-            'progress' => $reading->progress(),
-            'nextSentence' => $reading->nextSentence()?->toReaderArray(),
-        ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Child;
 
 use App\Http\Controllers\Controller;
+use App\Http\Presenters\ReadingScreen;
 use App\Http\Requests\Child\SyllableHelpRequest;
 use App\Models\Reading;
 use Illuminate\Http\JsonResponse;
@@ -41,11 +42,6 @@ class SyllableHelpController extends Controller
         $reading->refresh();
         $reading->finishIfComplete();
 
-        return response()->json([
-            'status' => 'done',
-            'pendingWord' => $reading->pendingWordForReader(),
-            'progress' => $reading->progress(),
-            'nextSentence' => $reading->nextSentence()?->toReaderArray(),
-        ]);
+        return response()->json(['status' => 'done', ...ReadingScreen::afterStep($reading)]);
     }
 }

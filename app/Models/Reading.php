@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\WordOutcome;
-use App\Speech\WordClips;
 use App\Stories\UzbekWord;
 use Database\Factories\ReadingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -118,29 +117,6 @@ class Reading extends Model
     public function hasPendingRetries(): bool
     {
         return $this->syllable_help_word_id !== null || ($this->pending_retry_word_ids ?? []) !== [];
-    }
-
-    /**
-     * Get the pending word as the reading screen shows it, or null when there is none.
-     *
-     * @return array{stage: 'retry'|'syllable_help', sentence: int, position: int, text: string, syllables: list<string>, clips: array{syllables: string|null, word: string|null}}|null
-     */
-    public function pendingWordForReader(): ?array
-    {
-        $word = $this->pendingWord();
-
-        if ($word === null) {
-            return null;
-        }
-
-        return [
-            'stage' => $this->syllable_help_word_id === null ? 'retry' : 'syllable_help',
-            'sentence' => $word->sentence->position,
-            'position' => $word->position,
-            'text' => $word->text,
-            'syllables' => $word->syllables,
-            'clips' => WordClips::urls($word),
-        ];
     }
 
     /**
