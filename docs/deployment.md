@@ -87,10 +87,17 @@ never rename `oqi-php` to a common name such as `app` (ITPlaza's is
 
 ### 3. The Stories and their voice clips
 
-Production starts empty. Once the Story commands exist (tickets 03 and 07),
-open the app resource's **Terminal** in Coolify, choose the `oqi-php`
-service, and load the Stories and make their voice clips there. The clips
-land in the `app-storage` volume and outlive every redeploy. Never run the
+Production starts empty. Open the app resource's **Terminal** in Coolify,
+choose the `oqi-php` service, and load the Stories from `resources/stories`
+(they are in the image):
+
+```bash
+php artisan stories:load
+```
+
+Run it again after every deploy that adds or changes a Story file. Once the
+voice clips command exists (ticket 07), make the clips there too: they land
+in the `app-storage` volume and outlive every redeploy. Never run the
 database seeder on the server: it creates a login with a known password.
 
 ### 4. Check it

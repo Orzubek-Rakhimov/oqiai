@@ -76,7 +76,6 @@ services:
             # The speech-to-text and voice services (ticket 13). Empty until they
             # are chosen and connected.
             GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-            ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
             AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY:-}
             AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION:-}
         volumes:

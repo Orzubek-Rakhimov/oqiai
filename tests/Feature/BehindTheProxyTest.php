@@ -19,19 +19,19 @@ test('the health check answers', function () {
 
 test('behind the trusted proxy the app links back over https', function () {
     $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.5'])
-        ->get('http://oqi.test/dashboard', ['X-Forwarded-Proto' => 'https'])
+        ->get('http://oqi.test'.route('picker', absolute: false), ['X-Forwarded-Proto' => 'https'])
         ->assertRedirect('https://oqi.test/login');
 });
 
 test('a forwarded host is not believed, so links never point at another site', function () {
     $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.5'])
-        ->get('http://oqi.test/dashboard', ['X-Forwarded-Proto' => 'https', 'X-Forwarded-Host' => 'evil.example'])
+        ->get('http://oqi.test'.route('picker', absolute: false), ['X-Forwarded-Proto' => 'https', 'X-Forwarded-Host' => 'evil.example'])
         ->assertRedirect('https://oqi.test/login');
 });
 
 test('a forwarded scheme from an untrusted address is ignored', function () {
     $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.7'])
-        ->get('http://oqi.test/dashboard', ['X-Forwarded-Proto' => 'https'])
+        ->get('http://oqi.test'.route('picker', absolute: false), ['X-Forwarded-Proto' => 'https'])
         ->assertRedirect('http://oqi.test/login');
 });
 
@@ -39,7 +39,7 @@ test('forwarded headers are ignored when no proxy is trusted, as in development'
     config(['trustedproxy.proxies' => '']);
 
     $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.5'])
-        ->get('http://oqi.test/dashboard', ['X-Forwarded-Proto' => 'https'])
+        ->get('http://oqi.test'.route('picker', absolute: false), ['X-Forwarded-Proto' => 'https'])
         ->assertRedirect('http://oqi.test/login');
 });
 
