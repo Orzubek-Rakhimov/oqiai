@@ -273,9 +273,10 @@ restart (**Redeploy**), not a code change.
 | `CHIRP_LOCATION`                 | `us`                                                            | Only for `chirp`: the region, `us` or `eu` (Uzbek is in Preview for `chirp_3`)                                                                     |
 | `CHIRP_PROJECT_ID`               | the key file's project                                          | Only for `chirp`: the Google Cloud project, if it isn't the service account's own                                                                  |
 | `GOOGLE_APPLICATION_CREDENTIALS` | `/var/www/html/storage/app/private/google-service-account.json` | Only for `chirp`: the service account's JSON key file                                                                                              |
-| `AISHA_API_KEY`                  | (none)                                                          | Only for `aisha`: the Aisha API key. One key serves both listening and the voice                                                                   |
-| `AISHA_TTS_MODEL`                | `Gulnoza`                                                       | Only for an `aisha` voice: Aisha's Uzbek voice model (Gulnoza is the only one)                                                                     |
-| `AISHA_TTS_MOOD`                 | `Neutral`                                                       | Only for an `aisha` voice: `Neutral`, `Cheerful`, `Happy` or `Sad`                                                                                 |
+| `AISHA_API_KEY`                  | (none)                                                          | Only for `aisha`: a VoiceLab developer key (`vlk_…`). One key serves both listening and the voice; see its permissions below                       |
+| `AISHA_BASE_URL`                 | `https://api.voicelab.uz`                                       | Only for `aisha`: the VoiceLab developer API                                                                                                       |
+| `AISHA_TTS_MODEL`                | `lison`                                                         | Only for an `aisha` voice: a model ID from VoiceLab's catalog (`lison`, or another listed by `GET /v1/tts/languages`)                              |
+| `AISHA_TTS_VOICE`                | (empty: the first Uzbek voice listed)                           | Only for an `aisha` voice: a `voice_…` ID, or a voice's name as `GET /v1/voices?language=uz` lists it                                              |
 | `AISHA_TTS_SLOW_SPEED`           | `0.8`                                                           | Only for an `aisha` voice: the speed of the slow Syllable help clips, from `0.5` to `2.0` (`1.0` is the usual pace)                                |
 
 The app **refuses to start** (`php artisan speech:check`, in the start-up
@@ -315,48 +316,73 @@ same settings in `.env` work with `composer run dev`.
 Aisha (VoiceLab, [aisha.group](https://aisha.group), sign-in at
 [voicelab.uz](https://voicelab.uz/app)) is an Uzbek company whose speech
 services are built for Uzbek. It can listen, voice the clips, or both, and is
-paid as you go (about 425 UZS a minute of listening and 1 UZS a character of
-voice when this was written).
+paid in credits (one credit a character of voice; listening is charged by the
+length of the recording). The app uses its **developer API**
+(`https://api.voicelab.uz`, documented at
+[docs.voicelab.uz/api](https://docs.voicelab.uz/api/)).
 
-1. **Ask Aisha first** (their documentation answers none of these):
-    - **Rate limits**: how many requests a minute, and what the app gets back
-      when it sends too many (the documentation names no 429 and no
-      `Retry-After`).
+1. **Ask Aisha first** (their documentation doesn't answer these):
     - **Children**: whether their terms allow a reading app for children
       in primary school (grades 1 to 4), and whether they use what they
       are sent (children's recordings) to train or improve their models.
       Get the answer in writing and keep it on file.
     - **Data**: where the recordings and voice text are processed and
       stored (in Uzbekistan or not), how long they are kept, and how to have
-      them deleted. This bears on Uzbekistan's personal-data rules; check
-      those separately.
-    - **Formats and lengths**: that their short-audio listening endpoint
-      takes the browser's WAV recordings of up to 15 seconds, and how long
-      the voice files they make stay downloadable.
-2. Make an API key in their Space and top up the balance. When the balance
-   runs out, listening fails (the Child is asked to read again) and clips
-   wait and are tried again later, so keep it topped up.
-3. Set `AISHA_API_KEY`, then `SPEECH_TO_TEXT_DRIVER=aisha` to listen with
+      them deleted. Every transcription is kept in the account's history
+      until it is deleted. This bears on Uzbekistan's personal-data rules;
+      check those separately.
+    - **Speed**: how long a transcription of a 15-second recording takes.
+      Every recording is processed in the background and the app waits for
+      it, for at most 20 seconds.
+2. **Make a developer key** at voicelab.uz → developer → API keys. It must
+   be a developer key, in the `vlk_…` format: keys for the older Aisha API
+   (`back.aisha.group`) don't work here, and that API refuses `vlk_…` keys
+   (`invalid_api_key_format`). Give the key these permissions:
+
+    | Permission     | Level      | Needed for                                                                                  |
+    | -------------- | ---------- | ------------------------------------------------------------------------------------------- |
+    | Speech to text | **Access** | Listening: sending a recording (Write) and reading its transcript back (Read)               |
+    | Text to speech | **Access** | The voice: making a clip (Write) and, for a slow one, reading the finished clip back (Read) |
+    | Voices         | Read       | Only when `AISHA_TTS_VOICE` is a name or empty, to look the voice up                        |
+
+    Leave the others at None. The secret is shown only once, when the key is
+    made. A key without a permission it needs is refused (`insufficient_scope`),
+    and the log names the permission to add. Top up the credits: when they run
+    out, listening fails (the Child is asked to read again) and clips wait and
+    are tried again later, so keep them topped up.
+
+3. **Choose the voice** (only for `TEXT_TO_SPEECH_DRIVER=aisha`). Leave
+   `AISHA_TTS_VOICE` empty for the first Uzbek voice VoiceLab lists for the
+   model, set it to a voice's name, or, best, to its `voice_…` ID, which
+   needs no Voices permission. To see the voices, run
+   `curl -H "Authorization: Bearer $AISHA_API_KEY" 'https://api.voicelab.uz/v1/voices?language=uz&model_id=lison'`.
+4. Set `AISHA_API_KEY`, then `SPEECH_TO_TEXT_DRIVER=aisha` to listen with
    Aisha, `TEXT_TO_SPEECH_DRIVER=aisha` for its voice, or both, and
    redeploy.
 
 How the app uses Aisha:
 
-- **Listening** uploads the Child's recording to Aisha's short-audio
-  endpoint in Uzbek and reads back the transcript. The Story text is never
-  sent. Aisha gives no word timings, which the app doesn't need. The browser
-  records WAV for every service because Aisha takes only mp3, wav, ogg and
-  m4a, not the webm that Chrome records by default.
+- **Listening** uploads the Child's recording (`POST /v1/stt`) in Uzbek and
+  waits for the transcript (`GET /v1/stt/transcriptions/{id}`, about once a
+  second, or as `Retry-After` asks). The Story text is never sent. The browser
+  records WAV, which VoiceLab takes (with MP3, M4A, OGG, WebM and FLAC).
+  "No speech detected" counts as nothing heard.
 - **The voice** reads a word's syllables, then the whole word, in one
-  request. Aisha has no pause markup, so the syllables are written with full
-  stops between them ("ku. tub. xo. na. ga. kutubxonaga."), and the slow
-  pace is `AISHA_TTS_SLOW_SPEED`. Each clip is two requests: one to make it
-  and one to download the WAV. Clips made before the switch keep the old
-  voice: make them again as in [Changing the voice](#changing-the-voice),
-  and listen to them.
+  request (`POST /v1/tts`). VoiceLab has no pause markup, so the syllables
+  are written with full stops between them ("ku. tub. xo. na. ga.
+  kutubxonaga."), and the slow pace is `AISHA_TTS_SLOW_SPEED`. A clip
+  usually comes back in that one request; a slow one is waited for and then
+  downloaded. Clips made before the switch keep the old voice: make them
+  again as in [Changing the voice](#changing-the-voice), and listen to them.
+- **Limits**: a rate limit (429) or used-up credits (402) makes a clip wait
+  before it is tried again, for as long as `Retry-After` asks when VoiceLab
+  says.
 
 Switch back with `SPEECH_TO_TEXT_DRIVER=gemini` and/or
 `TEXT_TO_SPEECH_DRIVER=gemini` and redeploy. The Aisha key can stay set.
+`AISHA_BASE_URL` changes only the address: the older Aisha API at
+`back.aisha.group` has other paths and fields, so pointing it there doesn't
+bring that API back.
 
 ### Changing the voice
 
