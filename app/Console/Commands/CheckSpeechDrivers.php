@@ -22,8 +22,8 @@ class CheckSpeechDrivers extends Command
      * The drivers each seam knows.
      */
     private const array DRIVERS = [
-        'SPEECH_TO_TEXT_DRIVER' => ['services.speech_to_text.driver', ['fake', 'gemini', 'chirp']],
-        'TEXT_TO_SPEECH_DRIVER' => ['services.text_to_speech.driver', ['fake', 'gemini']],
+        'SPEECH_TO_TEXT_DRIVER' => ['services.speech_to_text.driver', ['fake', 'gemini', 'chirp', 'aisha']],
+        'TEXT_TO_SPEECH_DRIVER' => ['services.text_to_speech.driver', ['fake', 'gemini', 'aisha']],
     ];
 
     public function handle(): int
@@ -37,6 +37,7 @@ class CheckSpeechDrivers extends Command
                 ! in_array($driver, $known, true) => "{$setting} is [{$driver}], which is not one of: ".implode(', ', $known).'.',
                 $driver === 'fake' && $this->laravel->isProduction() => "{$setting} is [fake] in production. The fake hears every sentence read perfectly; set a real driver.",
                 $driver === 'gemini' && blank(config('services.gemini.api_key')) => "{$setting} is [gemini] but GEMINI_API_KEY is not set.",
+                $driver === 'aisha' && blank(config('services.aisha.api_key')) => "{$setting} is [aisha] but AISHA_API_KEY is not set.",
                 $driver === 'chirp' && ! is_file((string) config('services.speech_to_text.chirp.credentials')) => "{$setting} is [chirp] but GOOGLE_APPLICATION_CREDENTIALS does not name a key file.",
                 default => null,
             };

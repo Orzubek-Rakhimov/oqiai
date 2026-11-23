@@ -107,7 +107,7 @@ final readonly class ChirpSpeechToText implements SpeechToText
             }
         }
 
-        return $words !== [] ? $words : GoogleSpeech::wordsOf($transcript);
+        return $words !== [] ? $words : RecognisedWord::inTranscript($transcript);
     }
 
     /**

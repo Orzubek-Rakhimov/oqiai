@@ -78,13 +78,19 @@ services:
             # drivers default to the real Gemini ones here, never to `fake`:
             # an empty placeholder would hand the app an empty driver instead
             # of a default, so each has a real value. The app refuses to start
-            # with a fake driver or without GEMINI_API_KEY (php artisan speech:check).
+            # with a fake driver, or a real one without its key (php artisan speech:check).
             SPEECH_TO_TEXT_DRIVER: ${SPEECH_TO_TEXT_DRIVER:-gemini}
             TEXT_TO_SPEECH_DRIVER: ${TEXT_TO_SPEECH_DRIVER:-gemini}
             GEMINI_API_KEY: ${GEMINI_API_KEY:-}
             GEMINI_TRANSCRIBE_MODEL: ${GEMINI_TRANSCRIBE_MODEL:-gemini-3.5-transcribe}
             GEMINI_TTS_MODEL: ${GEMINI_TTS_MODEL:-gemini-3.8-flash-tts}
             GEMINI_TTS_VOICE: ${GEMINI_TTS_VOICE:-Kore}
+            # Only for an aisha driver (Aisha / VoiceLab): one key for listening
+            # and the voice, and the voice's model, mood and slow speed.
+            AISHA_API_KEY: ${AISHA_API_KEY:-}
+            AISHA_TTS_MODEL: ${AISHA_TTS_MODEL:-Gulnoza}
+            AISHA_TTS_MOOD: ${AISHA_TTS_MOOD:-Neutral}
+            AISHA_TTS_SLOW_SPEED: ${AISHA_TTS_SLOW_SPEED:-0.8}
             # Only for SPEECH_TO_TEXT_DRIVER=chirp: Google Cloud Speech-to-Text,
             # signed in with a service account key file kept on the app-storage
             # volume (never served: nginx serves only storage/app/public).

@@ -242,7 +242,8 @@ their own backup (**Settings → Backup**).
 ## Speech-to-text and voice
 
 The app listens to the Child with a speech-to-text service and voices the
-Syllable help clips with a text-to-speech service, both from Google. Which
+Syllable help clips with a text-to-speech service: Google's (Gemini, Chirp)
+or Aisha's (VoiceLab, built for Uzbek). Which
 ones is set by environment variables in Coolify; changing them needs a
 restart (**Redeploy**), not a code change.
 
@@ -263,20 +264,25 @@ restart (**Redeploy**), not a code change.
 | Setting                          | Default                                                         | What it does                                                                                                                                       |
 | -------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GEMINI_API_KEY`                 | (required)                                                      | The paid-tier key. One key serves both listening and the voice                                                                                     |
-| `SPEECH_TO_TEXT_DRIVER`          | `gemini`                                                        | Who listens: `gemini` or `chirp`                                                                                                                   |
+| `SPEECH_TO_TEXT_DRIVER`          | `gemini`                                                        | Who listens: `gemini`, `chirp` or `aisha`                                                                                                          |
 | `GEMINI_TRANSCRIBE_MODEL`        | `gemini-3.5-transcribe`                                         | The Gemini listening model. Always run in verbatim mode in Uzbek (`uz-UZ`) and never sent the Story text, so a misread word is never smoothed over |
-| `TEXT_TO_SPEECH_DRIVER`          | `gemini`                                                        | Who voices the clips: `gemini`                                                                                                                     |
+| `TEXT_TO_SPEECH_DRIVER`          | `gemini`                                                        | Who voices the clips: `gemini` or `aisha`                                                                                                          |
 | `GEMINI_TTS_MODEL`               | `gemini-3.8-flash-tts`                                          | The voice model. `gemini-3.8-flash-lite-tts` is the cheaper fallback                                                                               |
 | `GEMINI_TTS_VOICE`               | `Kore`                                                          | One of Gemini's prebuilt voices (Kore, Aoede, Leda, Puck and others, listed in Google's speech generation guide)                                   |
 | `CHIRP_MODEL`                    | `chirp_3`                                                       | Only for `chirp`: the Google Cloud Speech-to-Text model                                                                                            |
 | `CHIRP_LOCATION`                 | `us`                                                            | Only for `chirp`: the region, `us` or `eu` (Uzbek is in Preview for `chirp_3`)                                                                     |
 | `CHIRP_PROJECT_ID`               | the key file's project                                          | Only for `chirp`: the Google Cloud project, if it isn't the service account's own                                                                  |
 | `GOOGLE_APPLICATION_CREDENTIALS` | `/var/www/html/storage/app/private/google-service-account.json` | Only for `chirp`: the service account's JSON key file                                                                                              |
+| `AISHA_API_KEY`                  | (none)                                                          | Only for `aisha`: the Aisha API key. One key serves both listening and the voice                                                                   |
+| `AISHA_TTS_MODEL`                | `Gulnoza`                                                       | Only for an `aisha` voice: Aisha's Uzbek voice model (Gulnoza is the only one)                                                                     |
+| `AISHA_TTS_MOOD`                 | `Neutral`                                                       | Only for an `aisha` voice: `Neutral`, `Cheerful`, `Happy` or `Sad`                                                                                 |
+| `AISHA_TTS_SLOW_SPEED`           | `0.8`                                                           | Only for an `aisha` voice: the speed of the slow Syllable help clips, from `0.5` to `2.0` (`1.0` is the usual pace)                                |
 
 The app **refuses to start** (`php artisan speech:check`, in the start-up
 checks) when either driver is `fake`, because the fake listener scores every
 sentence as perfect. It also refuses when a Gemini driver has no
-`GEMINI_API_KEY`, or when `chirp` has no key file. Coolify's log then says
+`GEMINI_API_KEY`, when `chirp` has no key file, or when an `aisha` driver has
+no `AISHA_API_KEY`. Coolify's log then says
 which setting is wrong.
 
 If a service fails or takes too long (20 seconds to listen, 60 to make a
@@ -304,10 +310,58 @@ reading:
 Switch back with `SPEECH_TO_TEXT_DRIVER=gemini` and redeploy. Locally, the
 same settings in `.env` work with `composer run dev`.
 
+### Trying Aisha
+
+Aisha (VoiceLab, [aisha.group](https://aisha.group), sign-in at
+[voicelab.uz](https://voicelab.uz/app)) is an Uzbek company whose speech
+services are built for Uzbek. It can listen, voice the clips, or both, and is
+paid as you go (about 425 UZS a minute of listening and 1 UZS a character of
+voice when this was written).
+
+1. **Ask Aisha first** (their documentation answers none of these):
+    - **Rate limits**: how many requests a minute, and what the app gets back
+      when it sends too many (the documentation names no 429 and no
+      `Retry-After`).
+    - **Children**: whether their terms allow a reading app for children
+      in primary school (grades 1 to 4), and whether they use what they
+      are sent (children's recordings) to train or improve their models.
+      Get the answer in writing and keep it on file.
+    - **Data**: where the recordings and voice text are processed and
+      stored (in Uzbekistan or not), how long they are kept, and how to have
+      them deleted. This bears on Uzbekistan's personal-data rules; check
+      those separately.
+    - **Formats and lengths**: that their short-audio listening endpoint
+      takes the browser's WAV recordings of up to 15 seconds, and how long
+      the voice files they make stay downloadable.
+2. Make an API key in their Space and top up the balance. When the balance
+   runs out, listening fails (the Child is asked to read again) and clips
+   wait and are tried again later, so keep it topped up.
+3. Set `AISHA_API_KEY`, then `SPEECH_TO_TEXT_DRIVER=aisha` to listen with
+   Aisha, `TEXT_TO_SPEECH_DRIVER=aisha` for its voice, or both, and
+   redeploy.
+
+How the app uses Aisha:
+
+- **Listening** uploads the Child's recording to Aisha's short-audio
+  endpoint in Uzbek and reads back the transcript. The Story text is never
+  sent. Aisha gives no word timings, which the app doesn't need. The browser
+  records WAV for every service because Aisha takes only mp3, wav, ogg and
+  m4a, not the webm that Chrome records by default.
+- **The voice** reads a word's syllables, then the whole word, in one
+  request. Aisha has no pause markup, so the syllables are written with full
+  stops between them ("ku. tub. xo. na. ga. kutubxonaga."), and the slow
+  pace is `AISHA_TTS_SLOW_SPEED`. Each clip is two requests: one to make it
+  and one to download the WAV. Clips made before the switch keep the old
+  voice: make them again as in [Changing the voice](#changing-the-voice),
+  and listen to them.
+
+Switch back with `SPEECH_TO_TEXT_DRIVER=gemini` and/or
+`TEXT_TO_SPEECH_DRIVER=gemini` and redeploy. The Aisha key can stay set.
+
 ### Changing the voice
 
-Clips already made keep the old voice after `GEMINI_TTS_MODEL` or
-`GEMINI_TTS_VOICE` changes. Make them again one word at a time with
+Clips already made keep the old voice after `TEXT_TO_SPEECH_DRIVER`,
+`GEMINI_TTS_MODEL`, `GEMINI_TTS_VOICE` or an `AISHA_TTS_*` setting changes. Make them again one word at a time with
 `php artisan audio:generate <word>`, or remove `storage/app/public/audio` in
 the `oqi-php` terminal: each clip is then made again in the new voice when a
 Child next needs it (or all at once with `php artisan audio:generate`). Then

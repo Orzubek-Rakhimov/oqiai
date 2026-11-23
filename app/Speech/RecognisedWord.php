@@ -14,4 +14,16 @@ final readonly class RecognisedWord
         public ?float $endSeconds = null,
         public ?float $confidence = null,
     ) {}
+
+    /**
+     * Split a transcript into its words, in order, for a service that gives no word list.
+     *
+     * @return list<RecognisedWord>
+     */
+    public static function inTranscript(string $transcript): array
+    {
+        $words = preg_split('/\s+/u', trim($transcript), flags: PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_map(fn (string $word): self => new self($word), $words);
+    }
 }

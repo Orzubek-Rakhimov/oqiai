@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Speech\AishaSpeechToText;
+use App\Speech\AishaTextToSpeech;
 use App\Speech\ChirpSpeechToText;
 use App\Speech\FakeSpeechToText;
 use App\Speech\FakeTextToSpeech;
@@ -40,6 +42,10 @@ class AppServiceProvider extends ServiceProvider
                 project: config('services.speech_to_text.chirp.project') ?: null,
                 timeoutSeconds: (int) config('services.speech_to_text.timeout'),
             ),
+            'aisha' => new AishaSpeechToText(
+                apiKey: (string) config('services.aisha.api_key'),
+                timeoutSeconds: (int) config('services.speech_to_text.timeout'),
+            ),
             default => throw new InvalidArgumentException('Unknown speech-to-text driver ['.config('services.speech_to_text.driver').'].'),
         });
 
@@ -49,6 +55,13 @@ class AppServiceProvider extends ServiceProvider
                 apiKey: (string) config('services.gemini.api_key'),
                 model: (string) config('services.text_to_speech.gemini.model'),
                 voice: (string) config('services.text_to_speech.gemini.voice'),
+                timeoutSeconds: (int) config('services.text_to_speech.timeout'),
+            ),
+            'aisha' => new AishaTextToSpeech(
+                apiKey: (string) config('services.aisha.api_key'),
+                model: (string) config('services.text_to_speech.aisha.model'),
+                mood: (string) config('services.text_to_speech.aisha.mood'),
+                slowSpeed: (float) config('services.text_to_speech.aisha.slow_speed'),
                 timeoutSeconds: (int) config('services.text_to_speech.timeout'),
             ),
             default => throw new InvalidArgumentException('Unknown text-to-speech driver ['.config('services.text_to_speech.driver').'].'),

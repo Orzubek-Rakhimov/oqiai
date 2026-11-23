@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { encodeWav } from '@/lib/wav';
 
 export type Recording = {
     audio: File;
@@ -22,15 +23,42 @@ const NOTHING_HEARD_MS = 6000;
 /** The longest a single sentence may be recorded. */
 const MAX_MS = 15000;
 
-const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+/**
+ * An audio worklet that hands each block of microphone samples (the first
+ * channel) to the page. Loaded from a blob, so it needs no file of its own.
+ */
+const CAPTURE_WORKLET = `
+registerProcessor('sentence-capture', class extends AudioWorkletProcessor {
+    process(inputs) {
+        const channel = inputs[0] && inputs[0][0];
 
-function fileNameFor(mimeType: string): string {
-    return mimeType.includes('mp4') ? 'sentence.m4a' : 'sentence.webm';
+        if (channel) {
+            this.port.postMessage(channel.slice(0));
+        }
+
+        return true;
+    }
+});
+`;
+
+async function loadCaptureWorklet(context: AudioContext): Promise<void> {
+    const url = URL.createObjectURL(
+        new Blob([CAPTURE_WORKLET], { type: 'text/javascript' }),
+    );
+
+    try {
+        await context.audioWorklet.addModule(url);
+    } finally {
+        URL.revokeObjectURL(url);
+    }
 }
 
 /**
  * Records one sentence from the microphone and stops by itself once the
- * Child goes quiet. The clip lives only in memory until it is sent.
+ * Child goes quiet. The clip is a 16 kHz mono WAV, which every
+ * speech-to-text service takes (Aisha takes no webm), written from the raw
+ * samples rather than by MediaRecorder. It lives only in memory until it
+ * is sent.
  */
 export function useSentenceRecorder(
     onRecorded: (recording: Recording | null) => void,
@@ -47,7 +75,7 @@ export function useSentenceRecorder(
 
     async function start(): Promise<void> {
         if (
-            typeof MediaRecorder === 'undefined' ||
+            typeof AudioWorkletNode === 'undefined' ||
             !navigator.mediaDevices?.getUserMedia
         ) {
             setState('unsupported');
@@ -78,17 +106,29 @@ export function useSentenceRecorder(
             return;
         }
 
-        const mimeType = mimeTypes.find((type) =>
-            MediaRecorder.isTypeSupported(type),
-        );
-        const recorder = new MediaRecorder(
-            stream,
-            mimeType ? { mimeType } : undefined,
-        );
-        const chunks: Blob[] = [];
+        let capture: AudioWorkletNode;
+
+        try {
+            await loadCaptureWorklet(context);
+            capture = new AudioWorkletNode(context, 'sentence-capture');
+        } catch {
+            stream.getTracks().forEach((track) => track.stop());
+            void context.close();
+            setState('unsupported');
+
+            return;
+        }
+
+        const chunks: Float32Array[] = [];
+        const source = context.createMediaStreamSource(stream);
         const analyser = context.createAnalyser();
         analyser.fftSize = 2048;
-        context.createMediaStreamSource(stream).connect(analyser);
+        source.connect(analyser);
+        // The worklet only runs while it leads to the speakers, so it leads
+        // there through a muted gain: nothing is heard.
+        const mute = context.createGain();
+        mute.gain.value = 0;
+        source.connect(capture).connect(mute).connect(context.destination);
         const samples = new Float32Array(analyser.fftSize);
 
         const startedAt = performance.now();
@@ -96,13 +136,38 @@ export function useSentenceRecorder(
         let lastSpeechAt = startedAt;
         let frame = 0;
 
+        const finish = () => {
+            capture.port.onmessage = null;
+            source.disconnect();
+            capture.disconnect();
+            stream.getTracks().forEach((track) => track.stop());
+            void context.close();
+            setState('idle');
+
+            const durationMs = Math.round(performance.now() - startedAt);
+
+            onRecordedRef.current(
+                heardSpeech && chunks.length > 0
+                    ? {
+                          audio: new File(
+                              [encodeWav(chunks, context.sampleRate)],
+                              'sentence.wav',
+                              { type: 'audio/wav' },
+                          ),
+                          durationMs,
+                      }
+                    : null,
+            );
+        };
+
         const stop = () => {
+            if (stopRef.current !== stop) {
+                return;
+            }
+
             stopRef.current = null;
             cancelAnimationFrame(frame);
-
-            if (recorder.state !== 'inactive') {
-                recorder.stop();
-            }
+            finish();
         };
 
         const listen = () => {
@@ -132,32 +197,11 @@ export function useSentenceRecorder(
             frame = requestAnimationFrame(listen);
         };
 
-        recorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-                chunks.push(event.data);
-            }
-        };
-
-        recorder.onstop = () => {
-            stream.getTracks().forEach((track) => track.stop());
-            void context.close();
-            setState('idle');
-
-            const durationMs = Math.round(performance.now() - startedAt);
-            const type = recorder.mimeType || mimeType || 'audio/webm';
-
-            onRecordedRef.current(
-                heardSpeech && chunks.length > 0
-                    ? {
-                          audio: new File(chunks, fileNameFor(type), { type }),
-                          durationMs,
-                      }
-                    : null,
-            );
+        capture.port.onmessage = (event: MessageEvent<Float32Array>) => {
+            chunks.push(event.data);
         };
 
         stopRef.current = stop;
-        recorder.start();
         setState('listening');
         frame = requestAnimationFrame(listen);
     }
