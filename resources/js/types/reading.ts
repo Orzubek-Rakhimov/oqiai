@@ -59,3 +59,12 @@ export type RetryResult =
 export type SyllableHelpResult = {
     status: 'done';
 } & ReadingStep;
+
+export type StarCount = 1 | 2 | 3;
+
+export type ReadingResult = {
+    stars: StarCount;
+    accuracy: number;
+    readingSpeed: number;
+    wordsToPractise: string[];
+};

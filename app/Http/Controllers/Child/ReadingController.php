@@ -12,7 +12,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Opening a Story and the reading screen.
+ * Opening a Story, the reading screen and a finished Reading's result.
  */
 class ReadingController extends Controller
 {
@@ -36,11 +36,15 @@ class ReadingController extends Controller
      * Show the reading screen at the Reading's next sentence, after any
      * pending retry or Syllable help of the sentence before it.
      */
-    public function show(Request $request, Reading $reading): Response
+    public function show(Request $request, Reading $reading): Response|RedirectResponse
     {
         /** @var Child $child */
         $child = $request->attributes->get(Child::class);
         abort_unless($reading->child()->is($child), 404);
+
+        if ($reading->finished_at !== null) {
+            return to_route('readings.result', $reading);
+        }
 
         return Inertia::render('child/reading', [
             'reading' => ['id' => $reading->id],
@@ -48,6 +52,31 @@ class ReadingController extends Controller
             'progress' => $reading->progress(),
             'sentence' => $reading->nextSentence()?->toReaderArray(),
             'pendingWord' => $reading->pendingWordForReader(),
+        ]);
+    }
+
+    /**
+     * Show a finished Reading's result: its Stars, Accuracy, Reading speed and the words to practise.
+     */
+    public function result(Request $request, Reading $reading): Response|RedirectResponse
+    {
+        /** @var Child $child */
+        $child = $request->attributes->get(Child::class);
+        abort_unless($reading->child()->is($child), 404);
+
+        if ($reading->finished_at === null) {
+            return to_route('readings.show', $reading);
+        }
+
+        return Inertia::render('child/result', [
+            'story' => $reading->story->only(['id', 'title']),
+            'result' => [
+                'stars' => $reading->stars,
+                'accuracy' => (int) round(($reading->accuracy ?? 0) * 100),
+                'readingSpeed' => (int) round($reading->reading_speed ?? 0),
+                'wordsToPractise' => $reading->wordsToPractise(),
+            ],
+            'nextStory' => $reading->story->next()?->only(['id', 'title']),
         ]);
     }
 }

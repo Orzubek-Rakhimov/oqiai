@@ -1,5 +1,5 @@
 import { Head, Link, router, useHttp } from '@inertiajs/react';
-import { BookOpen, Loader2, Mic, Pause, Square } from 'lucide-react';
+import { Loader2, Mic, Pause, Square } from 'lucide-react';
 import { useState } from 'react';
 import { WordPractice } from '@/components/word-practice';
 import { useSentenceRecorder } from '@/hooks/use-sentence-recorder';
@@ -126,6 +126,11 @@ export default function Reading({
     function nextSentence(): void {
         if (scored?.pendingWord) {
             setPractising(scored.pendingWord);
+        } else if (scored?.nextSentence === null) {
+            // The last sentence is read: the reading screen hands over to the result.
+            router.visit(showReading(reading.id));
+
+            return;
         } else {
             setCurrent(scored?.nextSentence ?? null);
         }
@@ -137,7 +142,10 @@ export default function Reading({
         setPractising(step.pendingWord);
         setCurrentProgress(step.progress);
 
-        if (step.pendingWord === null) {
+        if (step.pendingWord === null && step.nextSentence === null) {
+            // The last misread word is done: the reading screen hands over to the result.
+            router.visit(showReading(reading.id));
+        } else if (step.pendingWord === null) {
             setCurrent(step.nextSentence);
         }
     }
@@ -196,7 +204,7 @@ export default function Reading({
                         onDone={afterWord}
                     />
                 ) : current === null ? (
-                    <FinishedPlaceholder />
+                    <ToResult readingId={reading.id} />
                 ) : (
                     <>
                         <div
@@ -340,20 +348,19 @@ function SentenceWords({
 }
 
 /**
- * Shown after the last sentence until the result screen exists.
+ * Shown if every sentence is read but the page has not moved on to the result yet.
  */
-function FinishedPlaceholder() {
+function ToResult({ readingId }: { readingId: number }) {
     return (
         <div className="mt-10 flex flex-col items-center gap-4 text-center">
-            <BookOpen className="size-12 text-teal" />
             <p className="font-heading text-2xl font-black">
                 Hikoya tugadi! Barakalla!
             </p>
             <Link
-                href={storiesIndex()}
+                href={showReading(readingId)}
                 className="inline-flex h-15 w-full items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground"
             >
-                Hikoyalarga qaytish
+                Natijani ko&apos;rish
             </Link>
         </div>
     );

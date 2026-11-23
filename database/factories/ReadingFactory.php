@@ -28,12 +28,16 @@ class ReadingFactory extends Factory
     }
 
     /**
-     * A finished Reading.
+     * A finished Reading, with every word read correctly on the first try
+     * unless the test sets its own Accuracy, Stars and Reading speed.
      */
     public function finished(): static
     {
         return $this->state(fn (array $attributes): array => [
             'finished_at' => now(),
+            'accuracy' => 1.0,
+            'stars' => 3,
+            'reading_speed' => 30.0,
         ]);
     }
 }

@@ -244,3 +244,61 @@ test('a retry needs the word, a clip and its length', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['word', 'audio', 'duration_ms']);
 });
+
+test('a Reading whose last sentence had a misread word finishes only once its retry is done', function () {
+    actingAsChild($this->child)->postJson(route('readings.sentences.store', $this->reading), sentenceClip(0, 2000));
+    actingAsChild($this->child)->postJson(route('readings.sentences.store', $this->reading), sentenceClip(1, 2000));
+    speech()->hears('Salom mushuk dedi Olim');
+
+    actingAsChild($this->child)
+        ->postJson(route('readings.sentences.store', $this->reading), sentenceClip(2, 2000))
+        ->assertJsonPath('pendingWord.text', 'Ali.');
+
+    expect($this->reading->refresh()->finished_at)->toBeNull();
+
+    actingAsChild($this->child)
+        ->postJson(route('readings.retries.store', $this->reading), wordClip(2, 3, 1000))
+        ->assertJsonPath('correct', true)
+        ->assertJsonPath('pendingWord', null)
+        ->assertJsonPath('nextSentence', null);
+
+    expect($this->reading->refresh()->finished_at)->not->toBeNull();
+
+    actingAsChild($this->child)
+        ->get(route('readings.show', $this->reading))
+        ->assertRedirect(route('readings.result', $this->reading));
+
+    // 10 of the 11 words right on the first try, in 7 seconds of reading including the retry.
+    actingAsChild($this->child)
+        ->get(route('readings.result', $this->reading))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('result.accuracy', 91)
+            ->where('result.stars', 2)
+            ->where('result.readingSpeed', 86)
+            ->where('result.wordsToPractise', ['Ali']),
+        );
+});
+
+test('a Reading ending in Syllable help finishes once Syllable help is closed, and the helped word does not count as correct', function () {
+    $this->reading->update(['next_sentence_position' => 2]);
+    speech()->hears('Salom mushuk dedi Olim', 'Olim');
+    actingAsChild($this->child)->postJson(route('readings.sentences.store', $this->reading), sentenceClip(2, 3000));
+    actingAsChild($this->child)->postJson(route('readings.retries.store', $this->reading), wordClip(2, 3, 1000));
+
+    expect($this->reading->refresh()->finished_at)->toBeNull();
+
+    actingAsChild($this->child)
+        ->postJson(route('readings.syllable-help.store', $this->reading), ['sentence' => 2, 'word' => 3])
+        ->assertOk();
+
+    expect($this->reading->refresh()->finished_at)->not->toBeNull();
+
+    // Only the 3 words of the last sentence read right count, out of the Story's 11.
+    actingAsChild($this->child)
+        ->get(route('readings.result', $this->reading))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('result.accuracy', 27)
+            ->where('result.stars', 1)
+            ->where('result.wordsToPractise', ['Ali', 'uyga', 'keldi', 'Mushuk', 'o‘yinchoq', 'bilan', "o'ynadi"]),
+        );
+});

@@ -62,6 +62,20 @@ class Story extends Model
     }
 
     /**
+     * Get the Story after this one in library order (easiest Level first, then by title), or null for the last one.
+     */
+    public function next(): ?self
+    {
+        return self::query()
+            ->where(fn ($query) => $query
+                ->where('level', '>', $this->level)
+                ->orWhere(fn ($query) => $query->where('level', $this->level)->where('title', '>', $this->title)))
+            ->orderBy('level')
+            ->orderBy('title')
+            ->first();
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

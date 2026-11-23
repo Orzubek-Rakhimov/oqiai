@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\WordOutcome;
 use Database\Factories\ReadingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -26,6 +27,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $syllable_help_word_id The word the Child is in Syllable help for, misread on its retry too.
  * @property Carbon $started_at
  * @property Carbon|null $finished_at
+ * @property float|null $accuracy Once finished: the share of the Story's words read correctly on the first try, 0 to 1.
+ * @property int|null $stars Once finished: 1 to 3, earned from the Accuracy.
+ * @property float|null $reading_speed Once finished: words correct on the first try per minute of reading time.
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Child $child
@@ -33,7 +37,7 @@ use Illuminate\Support\Carbon;
  * @property-read Word|null $syllableHelpWord
  * @property-read Collection<int, WordResult> $wordResults
  */
-#[Fillable(['started_at', 'finished_at', 'next_sentence_position', 'reading_time_ms', 'pending_retry_word_ids', 'syllable_help_word_id'])]
+#[Fillable(['started_at', 'finished_at', 'next_sentence_position', 'reading_time_ms', 'pending_retry_word_ids', 'syllable_help_word_id', 'accuracy', 'stars', 'reading_speed'])]
 class Reading extends Model
 {
     /** @use HasFactory<ReadingFactory> */
@@ -126,12 +130,6 @@ class Reading extends Model
     }
 
     /**
-     * Finish the Reading once every sentence is scored and no retries are pending.
-     * Ticket 05 implements it; until then it does nothing.
-     */
-    public function finishIfComplete(): void {}
-
-    /**
      * Get the sentence the Child reads next, or null once every sentence is read.
      */
     public function nextSentence(): ?Sentence
@@ -150,6 +148,55 @@ class Reading extends Model
             'read' => $this->next_sentence_position,
             'total' => $this->story->sentences()->count(),
         ];
+    }
+
+    /**
+     * Finish the Reading once every sentence is read and no retry is pending:
+     * store the finish time, Accuracy, Stars and Reading speed. Does nothing
+     * if the Reading is already finished or not complete yet.
+     */
+    public function finishIfComplete(): void
+    {
+        if ($this->finished_at !== null
+            || $this->next_sentence_position < $this->story->sentences()->count()
+            || $this->hasPendingRetries()) {
+            return;
+        }
+
+        $wordCount = $this->story->words()->count();
+        $correctFirstTry = $this->wordResults()->where('outcome', WordOutcome::CorrectFirstTry)->count();
+
+        $this->forceFill([
+            'finished_at' => now(),
+            'accuracy' => $wordCount > 0 ? $correctFirstTry / $wordCount : 0.0,
+            'stars' => match (true) {
+                $correctFirstTry * 100 >= $wordCount * 95 => 3,
+                $correctFirstTry * 100 >= $wordCount * 85 => 2,
+                default => 1,
+            },
+            'reading_speed' => $this->reading_time_ms > 0 ? $correctFirstTry / ($this->reading_time_ms / 60000) : 0.0,
+        ])->save();
+    }
+
+    /**
+     * Get the Story's words the Child did not read correctly on the first try,
+     * in Story order, each once, without the punctuation around them.
+     *
+     * @return list<string>
+     */
+    public function wordsToPractise(): array
+    {
+        $correctWordIds = $this->wordResults()->where('outcome', WordOutcome::CorrectFirstTry)->pluck('word_id');
+
+        return array_values($this->story->words()
+            ->whereNotIn('words.id', $correctWordIds)
+            ->reorder()
+            ->orderBy('sentences.position')
+            ->orderBy('words.position')
+            ->get(['words.text', 'words.normalized'])
+            ->unique('normalized')
+            ->map(fn (Word $word): string => (string) preg_replace('/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/u', '', $word->text))
+            ->all());
     }
 
     /**
@@ -187,6 +234,9 @@ class Reading extends Model
             'next_sentence_position' => 'integer',
             'reading_time_ms' => 'integer',
             'pending_retry_word_ids' => 'array',
+            'accuracy' => 'float',
+            'stars' => 'integer',
+            'reading_speed' => 'float',
         ];
     }
 }
