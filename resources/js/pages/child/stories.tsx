@@ -1,0 +1,104 @@
+import { Head, Link } from '@inertiajs/react';
+import { BookOpen } from 'lucide-react';
+import ChildTabBar from '@/components/child-tab-bar';
+import { cn } from '@/lib/utils';
+import { index as storiesIndex } from '@/routes/stories';
+import type { LibraryStory, StoryLevel } from '@/types';
+
+const levelFilters: { level: StoryLevel | null; label: string }[] = [
+    { level: null, label: 'Hammasi' },
+    { level: 1, label: '1-daraja' },
+    { level: 2, label: '2-daraja' },
+    { level: 3, label: '3-daraja' },
+];
+
+const coverColours = ['#24665F', '#7A4E9E', '#B83E22', '#2F5F9E'];
+
+export default function Stories({
+    level,
+    stories,
+}: {
+    level: StoryLevel | null;
+    stories: LibraryStory[];
+}) {
+    return (
+        <>
+            <Head title="Hikoyalar" />
+
+            <div className="pb-28">
+                <h1 className="font-heading text-3xl font-black">Hikoyalar</h1>
+
+                <nav
+                    aria-label="Daraja bo'yicha saralash"
+                    className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1"
+                >
+                    {levelFilters.map((filter) => (
+                        <Link
+                            key={filter.label}
+                            href={storiesIndex(
+                                filter.level === null
+                                    ? undefined
+                                    : { query: { level: filter.level } },
+                            )}
+                            preserveScroll
+                            aria-current={
+                                filter.level === level ? 'page' : undefined
+                            }
+                            className={cn(
+                                'inline-flex min-h-11 shrink-0 items-center rounded-[20px] border-2 bg-card px-4 text-sm font-semibold',
+                                filter.level === level &&
+                                    'border-foreground bg-foreground text-background',
+                            )}
+                        >
+                            {filter.label}
+                        </Link>
+                    ))}
+                </nav>
+
+                {stories.length === 0 ? (
+                    <p className="mt-10 text-center text-muted-foreground">
+                        Bu darajada hozircha hikoya yo&apos;q.
+                    </p>
+                ) : (
+                    <ul className="mt-5 grid grid-cols-2 gap-3">
+                        {stories.map((story) => (
+                            <li
+                                key={story.id}
+                                className="flex flex-col overflow-hidden rounded-3xl border-2 bg-card"
+                            >
+                                <div
+                                    className="flex h-24 items-center justify-center text-white/90"
+                                    style={{
+                                        backgroundColor:
+                                            coverColours[
+                                                story.id % coverColours.length
+                                            ],
+                                    }}
+                                    aria-hidden
+                                >
+                                    <BookOpen className="size-10" />
+                                </div>
+                                <div className="flex flex-1 flex-col gap-1 p-3">
+                                    <h2 className="font-heading text-base leading-tight font-extrabold">
+                                        {story.title}
+                                    </h2>
+                                    <p className="text-xs text-muted-foreground">
+                                        {story.level}-daraja · {story.minutes}{' '}
+                                        daqiqa
+                                    </p>
+                                    {story.isNew && (
+                                        <span className="mt-auto self-start rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-primary">
+                                            Yangi
+                                        </span>
+                                    )}
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+
+            <ChildTabBar current="stories" />
+        </>
+    );
+}
