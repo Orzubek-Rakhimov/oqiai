@@ -42,7 +42,7 @@ type Props = {
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Farzandlarim',
+        title: 'Ota-ona paneli',
         href: parentHome(),
         icon: LayoutGrid,
     },
