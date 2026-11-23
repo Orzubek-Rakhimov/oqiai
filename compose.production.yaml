@@ -85,11 +85,13 @@ services:
             GEMINI_TRANSCRIBE_MODEL: ${GEMINI_TRANSCRIBE_MODEL:-gemini-3.5-transcribe}
             GEMINI_TTS_MODEL: ${GEMINI_TTS_MODEL:-gemini-3.8-flash-tts}
             GEMINI_TTS_VOICE: ${GEMINI_TTS_VOICE:-Kore}
-            # Only for an aisha driver (Aisha / VoiceLab): one key for listening
-            # and the voice, and the voice's model, mood and slow speed.
+            # Only for an aisha driver (the VoiceLab developer API): one vlk_ key
+            # for listening and the voice, the API's base URL, and the voice's
+            # model, voice (empty: the first Uzbek voice listed) and slow speed.
             AISHA_API_KEY: ${AISHA_API_KEY:-}
-            AISHA_TTS_MODEL: ${AISHA_TTS_MODEL:-Gulnoza}
-            AISHA_TTS_MOOD: ${AISHA_TTS_MOOD:-Neutral}
+            AISHA_BASE_URL: ${AISHA_BASE_URL:-https://api.voicelab.uz}
+            AISHA_TTS_MODEL: ${AISHA_TTS_MODEL:-lison}
+            AISHA_TTS_VOICE: ${AISHA_TTS_VOICE:-}
             AISHA_TTS_SLOW_SPEED: ${AISHA_TTS_SLOW_SPEED:-0.8}
             # Only for SPEECH_TO_TEXT_DRIVER=chirp: Google Cloud Speech-to-Text,
             # signed in with a service account key file kept on the app-storage

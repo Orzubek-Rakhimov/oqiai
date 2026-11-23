@@ -44,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
             ),
             'aisha' => new AishaSpeechToText(
                 apiKey: (string) config('services.aisha.api_key'),
+                baseUrl: (string) config('services.aisha.base_url'),
                 timeoutSeconds: (int) config('services.speech_to_text.timeout'),
             ),
             default => throw new InvalidArgumentException('Unknown speech-to-text driver ['.config('services.speech_to_text.driver').'].'),
@@ -59,8 +60,9 @@ class AppServiceProvider extends ServiceProvider
             ),
             'aisha' => new AishaTextToSpeech(
                 apiKey: (string) config('services.aisha.api_key'),
+                baseUrl: (string) config('services.aisha.base_url'),
                 model: (string) config('services.text_to_speech.aisha.model'),
-                mood: (string) config('services.text_to_speech.aisha.mood'),
+                voice: (string) config('services.text_to_speech.aisha.voice'),
                 slowSpeed: (float) config('services.text_to_speech.aisha.slow_speed'),
                 timeoutSeconds: (int) config('services.text_to_speech.timeout'),
             ),

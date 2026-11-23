@@ -44,11 +44,14 @@ return [
     ],
 
     /*
-    | Aisha (VoiceLab, aisha.group), a speech service built for Uzbek. One key
-    | serves both listening and the voice (see docs/deployment.md).
+    | Aisha (VoiceLab), a speech service built for Uzbek, through VoiceLab's
+    | developer API. One developer key (vlk_…) with the Speech to text and Text
+    | to speech permissions serves both listening and the voice (see
+    | docs/deployment.md).
     */
     'aisha' => [
         'api_key' => env('AISHA_API_KEY'),
+        'base_url' => env('AISHA_BASE_URL', 'https://api.voicelab.uz'),
     ],
 
     /*
@@ -80,9 +83,11 @@ return [
     | - "fake" makes short silent clips (tests, local demos) and needs no service;
     | - "gemini" uses a Gemini speech model (GEMINI_API_KEY), such as
     |   gemini-3.8-flash-tts or the cheaper gemini-3.8-flash-lite-tts;
-    | - "aisha" uses Aisha's Uzbek voice (AISHA_API_KEY): the Gulnoza model in
-    |   one of its moods (Neutral, Cheerful, Happy, Sad), with AISHA_TTS_SLOW_SPEED
-    |   (0.5 to 2.0, 1.0 is the usual pace) for the slow Syllable help clips.
+    | - "aisha" uses VoiceLab's Uzbek voice (AISHA_API_KEY): AISHA_TTS_MODEL (a
+    |   model ID such as lison) and AISHA_TTS_VOICE (a voice_… ID, or a voice's
+    |   name, or empty for the first Uzbek voice VoiceLab lists), with
+    |   AISHA_TTS_SLOW_SPEED (0.5 to 2.0, 1.0 is the usual pace) for the slow
+    |   Syllable help clips.
     | Production refuses "fake" (php artisan speech:check).
     */
     'text_to_speech' => [
@@ -93,8 +98,8 @@ return [
             'voice' => env('GEMINI_TTS_VOICE', 'Kore'),
         ],
         'aisha' => [
-            'model' => env('AISHA_TTS_MODEL', 'Gulnoza'),
-            'mood' => env('AISHA_TTS_MOOD', 'Neutral'),
+            'model' => env('AISHA_TTS_MODEL', 'lison'),
+            'voice' => env('AISHA_TTS_VOICE', ''),
             'slow_speed' => (float) env('AISHA_TTS_SLOW_SPEED', 0.8),
         ],
     ],

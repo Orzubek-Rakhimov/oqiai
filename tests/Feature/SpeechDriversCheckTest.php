@@ -7,8 +7,11 @@ use App\Speech\FakeSpeechToText;
 use App\Speech\FakeTextToSpeech;
 use App\Speech\GeminiSpeechToText;
 use App\Speech\GeminiTextToSpeech;
+use App\Speech\SpeakingOptions;
 use App\Speech\SpeechToText;
 use App\Speech\TextToSpeech;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 
 /**
  * Choose the drivers and their settings, as the server's environment would.
@@ -96,3 +99,30 @@ test('a real driver without its settings refuses to start', function (array $set
     'no Chirp key file' => [['services.speech_to_text.driver' => 'chirp', 'services.speech_to_text.chirp.credentials' => __DIR__.'/missing-key-file.json'], 'GOOGLE_APPLICATION_CREDENTIALS'],
     'an unknown driver' => [['services.speech_to_text.driver' => 'whisper'], 'whisper'],
 ]);
+
+test('the Aisha drivers call the VoiceLab developer API at the configured base URL, with the configured model, voice and pace', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        'https://voicelab.example/v1/tts' => Http::response("RIFF\x24\x00\x00\x00WAVEfmt ", 200, ['Content-Type' => 'audio/wav']),
+        'https://voicelab.example/v1/stt' => Http::response(['id' => 'stt_01JTEST', 'status' => 'queued'], 202),
+        'https://voicelab.example/v1/stt/transcriptions/stt_01JTEST' => Http::response(['id' => 'stt_01JTEST', 'status' => 'completed', 'transcript' => 'uyga']),
+    ]);
+    speechSettings([
+        'services.speech_to_text.driver' => 'aisha',
+        'services.text_to_speech.driver' => 'aisha',
+        'services.aisha.api_key' => 'vlk_test-key',
+        'services.aisha.base_url' => 'https://voicelab.example',
+        'services.text_to_speech.aisha.model' => 'lison-v2',
+        'services.text_to_speech.aisha.voice' => 'voice_01JUZBEK',
+        'services.text_to_speech.aisha.slow_speed' => 0.7,
+    ]);
+
+    app(TextToSpeech::class)->speak(['uyga'], new SpeakingOptions(slowly: true));
+    app(SpeechToText::class)->transcribe('RIFF-clip', 'audio/wav', 'uyga', 'uz');
+
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://voicelab.example/v1/tts'
+        && $request->header('Authorization') === ['Bearer vlk_test-key']
+        && $request['model_id'] === 'lison-v2' && $request['voice_id'] === 'voice_01JUZBEK' && $request['speed'] === 0.7);
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://voicelab.example/v1/stt'
+        && $request->header('Authorization') === ['Bearer vlk_test-key']);
+});
