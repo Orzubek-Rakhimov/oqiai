@@ -33,7 +33,8 @@ class ReadingController extends Controller
     }
 
     /**
-     * Show the reading screen at the Reading's next sentence.
+     * Show the reading screen at the Reading's next sentence, after any
+     * pending retry or Syllable help of the sentence before it.
      */
     public function show(Request $request, Reading $reading): Response|RedirectResponse
     {
@@ -50,6 +51,7 @@ class ReadingController extends Controller
             'story' => $reading->story->only(['id', 'title']),
             'progress' => $reading->progress(),
             'sentence' => $reading->nextSentence()?->toReaderArray(),
+            'pendingWord' => $reading->pendingWordForReader(),
         ]);
     }
 

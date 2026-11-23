@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\Child\HomeController as ChildHomeController;
 use App\Http\Controllers\Child\ReadingController;
+use App\Http\Controllers\Child\RetryController;
 use App\Http\Controllers\Child\SentenceController;
 use App\Http\Controllers\Child\StoryController;
+use App\Http\Controllers\Child\SyllableHelpController;
 use App\Http\Controllers\Parent\ChildController;
 use App\Http\Controllers\Parent\HomeController as ParentHomeController;
 use App\Http\Controllers\Parent\MicrophoneCheckController;
@@ -31,6 +33,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('child/readings/{reading}', [ReadingController::class, 'show'])->name('readings.show');
         Route::get('child/readings/{reading}/result', [ReadingController::class, 'result'])->name('readings.result');
         Route::post('child/readings/{reading}/sentences', [SentenceController::class, 'store'])->name('readings.sentences.store');
+        Route::post('child/readings/{reading}/retries', [RetryController::class, 'store'])->name('readings.retries.store');
+        Route::post('child/readings/{reading}/syllable-help', [SyllableHelpController::class, 'store'])->name('readings.syllable-help.store');
     });
 });
 

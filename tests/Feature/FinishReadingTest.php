@@ -13,15 +13,38 @@ const TWENTY_WORDS_FIRST = "Bir kuni Ali bilan Vali bog'ga borib katta olma terd
 const TWENTY_WORDS_SECOND = 'Keyin ular uyga qaytib onasiga olmalarni berib katta rahmat eshitdi';
 
 /**
- * Read one sentence of the Reading aloud, as the reading screen sends it.
+ * Read one sentence of the Reading aloud, as the reading screen sends it,
+ * heard as the given transcript (or read perfectly). Each misread word then
+ * gets its retry, read right in no time, so the figures depend only on the
+ * sentence.
  */
-function readSentenceAloud(Child $child, Reading $reading, int $position, int $durationMs = 30000): mixed
+function readSentenceAloud(Child $child, Reading $reading, int $position, int $durationMs = 30000, ?string $heard = null): mixed
 {
-    return actingAsChild($child)->postJson(route('readings.sentences.store', $reading), [
+    if ($heard !== null) {
+        speech()->hears($heard);
+    }
+
+    $response = actingAsChild($child)->postJson(route('readings.sentences.store', $reading), [
         'sentence' => $position,
         'audio' => UploadedFile::fake()->createWithContent('sentence.webm', 'fake-opus-bytes'),
         'duration_ms' => $durationMs,
     ]);
+
+    $pendingWord = $response->json('pendingWord');
+
+    while ($pendingWord !== null) {
+        $pendingWord = actingAsChild($child)
+            ->postJson(route('readings.retries.store', $reading), [
+                'sentence' => $pendingWord['sentence'],
+                'word' => $pendingWord['position'],
+                'audio' => UploadedFile::fake()->createWithContent('word.webm', 'fake-opus-bytes'),
+                'duration_ms' => 0,
+            ])
+            ->assertJsonPath('correct', true)
+            ->json('pendingWord');
+    }
+
+    return $response;
 }
 
 /**
@@ -42,13 +65,11 @@ beforeEach(function () {
 
 test('reading the last sentence finishes the reading and shows its result', function () {
     $reading = Reading::factory()->for($this->child)->for($this->story)->create();
-    speech()->hears(TWENTY_WORDS_FIRST, misreading(TWENTY_WORDS_SECOND, ['onasiga']));
-
-    readSentenceAloud($this->child, $reading, 0, 30000)->assertOk();
+    readSentenceAloud($this->child, $reading, 0, 30000, TWENTY_WORDS_FIRST)->assertOk();
     expect($reading->refresh()->finished_at)->toBeNull();
 
     $this->freezeSecond();
-    readSentenceAloud($this->child, $reading, 1, 30000)->assertOk();
+    readSentenceAloud($this->child, $reading, 1, 30000, misreading(TWENTY_WORDS_SECOND, ['onasiga']))->assertOk();
 
     $reading->refresh();
     expect($reading->finished_at?->equalTo(now()))->toBeTrue();
@@ -74,10 +95,8 @@ test('reading the last sentence finishes the reading and shows its result', func
 
 test('stars come from accuracy: 3 at 95% or more, 2 at 85% or more, otherwise 1', function (array $misread, int $accuracy, int $stars) {
     $reading = Reading::factory()->for($this->child)->for($this->story)->create();
-    speech()->hears(TWENTY_WORDS_FIRST, misreading(TWENTY_WORDS_SECOND, $misread) ?: 'salom');
-
-    readSentenceAloud($this->child, $reading, 0);
-    readSentenceAloud($this->child, $reading, 1);
+    readSentenceAloud($this->child, $reading, 0, heard: TWENTY_WORDS_FIRST);
+    readSentenceAloud($this->child, $reading, 1, heard: misreading(TWENTY_WORDS_SECOND, $misread) ?: 'salom');
 
     actingAsChild($this->child)
         ->get(route('readings.result', $reading))
@@ -97,10 +116,8 @@ test('stars come from accuracy: 3 at 95% or more, 2 at 85% or more, otherwise 1'
 
 test('reading speed is the words correct on the first try per minute of reading time', function () {
     $reading = Reading::factory()->for($this->child)->for($this->story)->create();
-    speech()->hears(misreading(TWENTY_WORDS_FIRST, ['Vali', 'terdi']), TWENTY_WORDS_SECOND);
-
-    readSentenceAloud($this->child, $reading, 0, 20000);
-    readSentenceAloud($this->child, $reading, 1, 25000);
+    readSentenceAloud($this->child, $reading, 0, 20000, misreading(TWENTY_WORDS_FIRST, ['Vali', 'terdi']));
+    readSentenceAloud($this->child, $reading, 1, 25000, TWENTY_WORDS_SECOND);
 
     actingAsChild($this->child)
         ->get(route('readings.result', $reading))
@@ -114,11 +131,9 @@ test('words to practise are listed once each, in story order, without punctuatio
     $this->artisan('stories:load', ['--path' => base_path('tests/Fixtures/stories')])->assertSuccessful();
     $story = Story::firstWhere('slug', 'ali-va-mushuk');
     $reading = Reading::factory()->for($this->child)->for($story)->create();
-    speech()->hears('uyga keldi', "Mushuk o'yinchoq bilan o'ynadi", 'Salom mushuk dedi');
-
-    readSentenceAloud($this->child, $reading, 0);
-    readSentenceAloud($this->child, $reading, 1);
-    readSentenceAloud($this->child, $reading, 2);
+    readSentenceAloud($this->child, $reading, 0, heard: 'uyga keldi');
+    readSentenceAloud($this->child, $reading, 1, heard: "Mushuk o'yinchoq bilan o'ynadi");
+    readSentenceAloud($this->child, $reading, 2, heard: 'Salom mushuk dedi');
 
     actingAsChild($this->child)
         ->get(route('readings.result', $reading))
@@ -185,9 +200,8 @@ test('the library shows the best stars per story, and the stars total adds up on
 
 test('a re-read can raise the best stars but never lowers them', function () {
     $first = Reading::factory()->for($this->child)->for($this->story)->create();
-    speech()->hears(misreading(TWENTY_WORDS_FIRST, ['Vali', 'terdi']), TWENTY_WORDS_SECOND);
-    readSentenceAloud($this->child, $first, 0);
-    readSentenceAloud($this->child, $first, 1);
+    readSentenceAloud($this->child, $first, 0, heard: misreading(TWENTY_WORDS_FIRST, ['Vali', 'terdi']));
+    readSentenceAloud($this->child, $first, 1, heard: TWENTY_WORDS_SECOND);
 
     actingAsChild($this->child)->get(route('stories.index'))
         ->assertInertia(fn (Assert $page) => $page->where('stories.0.bestStars', 2)->where('starsTotal', 2));
@@ -202,9 +216,8 @@ test('a re-read can raise the best stars but never lowers them', function () {
 
     actingAsChild($this->child)->post(route('readings.store', $this->story));
     $worse = Reading::query()->unfinished()->sole();
-    speech()->hears('salom', 'salom');
-    readSentenceAloud($this->child, $worse, 0);
-    readSentenceAloud($this->child, $worse, 1);
+    readSentenceAloud($this->child, $worse, 0, heard: 'salom');
+    readSentenceAloud($this->child, $worse, 1, heard: 'salom');
 
     actingAsChild($this->child)->get(route('readings.result', $worse))
         ->assertInertia(fn (Assert $page) => $page->where('result.stars', 1));
