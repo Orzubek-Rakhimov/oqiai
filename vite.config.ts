@@ -67,6 +67,17 @@ export default defineConfig({
         singleAttributePerLine: false,
         htmlWhitespaceSensitivity: 'css',
         ignorePatterns: [
+            // Agent tooling, the spec and tickets: generated or hand-kept
+            // outside the app's own style, and not part of the app.
+            '.agents/**',
+            '.claude/**',
+            '.scratch/**',
+            'docs/agents/**',
+            '.mcp.json',
+            'AGENTS.md',
+            'CLAUDE.md',
+            'boost.json',
+            'skills-lock.json',
             '.github/**',
             'composer.json',
             'resources/js/components/ui/*',
