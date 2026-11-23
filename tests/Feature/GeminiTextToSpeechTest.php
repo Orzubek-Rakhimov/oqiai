@@ -4,6 +4,7 @@ use App\Enums\SpeechPause;
 use App\Speech\GeminiTextToSpeech;
 use App\Speech\SpeakingOptions;
 use App\Speech\TextToSpeechFailed;
+use App\Speech\TextToSpeechRateLimited;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -93,3 +94,30 @@ test('a service failure, a timeout or an answer without a WAV is a text-to-speec
     'audio that is not a WAV' => fn () => fn () => Http::response(spoken('just some bytes')),
     'an unfinished interaction' => fn () => fn () => Http::response(['id' => 'interactions/xyz', 'status' => 'in_progress', 'steps' => []]),
 ])->throws(TextToSpeechFailed::class);
+
+test('a rate-limit or quota answer is a rate limit, with how long the service asks to wait', function (Closure $answer, ?int $retryAfterSeconds) {
+    Http::fake(['generativelanguage.googleapis.com/*' => $answer]);
+
+    try {
+        geminiVoice()->speak(['uyga'], new SpeakingOptions);
+        $this->fail('The rate limit was not reported.');
+    } catch (TextToSpeechRateLimited $rateLimited) {
+        expect($rateLimited->retryAfterSeconds)->toBe($retryAfterSeconds);
+    }
+})->with([
+    'a 429 with Retry-After in seconds' => [fn () => fn () => Http::response(['error' => ['code' => 429, 'message' => 'Rate limit exceeded', 'status' => 'RESOURCE_EXHAUSTED']], 429, ['Retry-After' => '42']), 42],
+    'a 429 with the wait in its details' => [fn () => fn () => Http::response(['error' => [
+        'code' => 429,
+        'status' => 'RESOURCE_EXHAUSTED',
+        'details' => [['@type' => 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay' => '31.5s']],
+    ]], 429), 32],
+    'a 429 that says nothing of a wait' => [fn () => fn () => Http::response(['error' => ['message' => 'Quota exceeded']], 429), null],
+    'a used-up quota answered with another status' => [fn () => fn () => Http::response(['error' => ['code' => 403, 'status' => 'RESOURCE_EXHAUSTED']], 403), null],
+]);
+
+test('a rate limit stops at the first request: nothing is retried in the same call', function () {
+    Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['error' => ['code' => 429]], 429, ['Retry-After' => '20'])]);
+
+    expect(fn () => geminiVoice()->speak(['uyga'], new SpeakingOptions))->toThrow(TextToSpeechRateLimited::class);
+    Http::assertSentCount(1);
+});

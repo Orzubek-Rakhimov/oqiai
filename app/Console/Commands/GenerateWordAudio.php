@@ -2,11 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\SpeechPause;
 use App\Models\Word;
-use App\Speech\SpeakingOptions;
-use App\Speech\TextToSpeech;
 use App\Speech\TextToSpeechFailed;
+use App\Speech\TextToSpeechRateLimited;
 use App\Speech\WordClips;
 use App\Stories\UzbekWord;
 use Illuminate\Console\Attributes\Description;
@@ -14,19 +12,32 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 
 /**
- * The voice clips for Syllable help: for every Story word, its syllables
- * read slowly with long pauses, and the whole word read slowly. Clips that
- * exist are kept, so the command is safe to re-run after loading Stories;
- * naming one word regenerates its clips, for a word that sounds wrong.
+ * The voice clips for Syllable help, made ahead. This is optional: a
+ * word's clip is made the first time a Child needs it (WordClips). Run
+ * without a word, it makes the clip of every Story word that has none;
+ * naming one word regenerates its clip, for a word that sounds wrong.
+ * When the voice service is rate limited, the command waits as long as it
+ * asks (or a minute) and tries the word again.
  */
-#[Signature('audio:generate {word? : Regenerate the clips of this one word (capitals and apostrophe style do not matter)}')]
-#[Description('Generate the missing voice clips of every Story word, or regenerate the clips of one word')]
+#[Signature('audio:generate {word? : Regenerate the clip of this one word (capitals and apostrophe style do not matter)}')]
+#[Description('Generate the missing voice clips of every Story word ahead of use, or regenerate the clip of one word')]
 class GenerateWordAudio extends Command
 {
-    public function handle(TextToSpeech $voice): int
+    /**
+     * How many times a rate-limited word is tried before it is reported as failed.
+     */
+    private const int TRIES = 5;
+
+    /**
+     * How long to wait after a rate limit that gives no Retry-After, in seconds.
+     */
+    private const int DEFAULT_WAIT_SECONDS = 60;
+
+    public function handle(WordClips $clips): int
     {
         $named = $this->argument('word');
         $words = $this->words(is_string($named) ? UzbekWord::normalize($named) : null);
@@ -38,29 +49,27 @@ class GenerateWordAudio extends Command
         }
 
         $disk = Storage::disk(WordClips::DISK);
-        $options = new SpeakingOptions(slowly: true, pauseBetweenParts: SpeechPause::Long);
         $created = 0;
         $skipped = 0;
         $succeeded = true;
 
-        foreach ($this->clips($words) as $path => $parts) {
+        foreach ($words as $word) {
+            $path = WordClips::path($word->syllables);
+
             if (! is_string($named) && $disk->exists($path)) {
                 $skipped++;
 
                 continue;
             }
 
-            try {
-                $disk->put($path, $voice->speak($parts, $options));
-            } catch (TextToSpeechFailed $exception) {
-                $this->components->error("{$path}: the voice service failed ({$exception->getMessage()}).");
+            if (! $this->make($clips, $word)) {
                 $succeeded = false;
 
                 continue;
             }
 
             $created++;
-            $this->components->twoColumnDetail(implode(' - ', $parts), $path);
+            $this->components->twoColumnDetail(implode(' - ', $word->syllables).' · '.$word->normalized, $path);
         }
 
         $this->components->info("Created {$created} ".Str::plural('clip', $created).", skipped {$skipped} that already existed.");
@@ -69,9 +78,39 @@ class GenerateWordAudio extends Command
     }
 
     /**
+     * Make the word's clip, waiting and trying again while the voice service is rate limited.
+     */
+    private function make(WordClips $clips, Word $word): bool
+    {
+        $path = WordClips::path($word->syllables);
+
+        for ($try = 1; ; $try++) {
+            try {
+                $clips->make($word);
+
+                return true;
+            } catch (TextToSpeechRateLimited $rateLimited) {
+                if ($try >= self::TRIES) {
+                    $this->components->error("{$path}: the voice service failed, still rate limited after {$try} tries.");
+
+                    return false;
+                }
+
+                $seconds = $rateLimited->retryAfterSeconds ?? self::DEFAULT_WAIT_SECONDS;
+                $this->components->warn("{$path}: the voice service is rate limited, waiting {$seconds} s.");
+                Sleep::for($seconds)->seconds();
+            } catch (TextToSpeechFailed $exception) {
+                $this->components->error("{$path}: the voice service failed ({$exception->getMessage()}).");
+
+                return false;
+            }
+        }
+    }
+
+    /**
      * Get each distinct Story word, or only the named one.
      *
-     * @return list<array{normalized: string, syllables: list<string>}>
+     * @return list<Word>
      */
     private function words(?string $normalized): array
     {
@@ -79,31 +118,8 @@ class GenerateWordAudio extends Command
             ->when($normalized !== null, fn (Builder $query) => $query->where('normalized', $normalized))
             ->orderBy('id')
             ->get(['normalized', 'syllables'])
-            ->map(fn (Word $word): array => ['normalized' => $word->normalized, 'syllables' => $word->syllables])
-            ->unique(fn (array $word): string => $word['normalized'].'|'.implode('-', $word['syllables']))
+            ->reject(fn (Word $word): bool => $word->normalized === '' || $word->syllables === [])
+            ->unique(fn (Word $word): string => WordClips::path($word->syllables))
             ->all());
-    }
-
-    /**
-     * Get the text of every clip to make, keyed by its path: the syllables, then the whole word.
-     *
-     * @param  list<array{normalized: string, syllables: list<string>}>  $words
-     * @return array<string, non-empty-list<string>>
-     */
-    private function clips(array $words): array
-    {
-        $clips = [];
-
-        foreach ($words as $word) {
-            if ($word['normalized'] === '' || $word['syllables'] === []) {
-                continue;
-            }
-
-            $paths = WordClips::paths($word['normalized'], $word['syllables']);
-            $clips[$paths['syllables']] = $word['syllables'];
-            $clips[$paths['word']] = [$word['normalized']];
-        }
-
-        return $clips;
     }
 }

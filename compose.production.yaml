@@ -3,8 +3,9 @@
 #
 # Two services from the two images of the Dockerfile. The database is a
 # SQLite file on the `database` volume (a test project with a handful of
-# families needs no database server). There is no scheduler and no queue worker, because
-# nothing runs on a schedule or in the background yet. Settings come from
+# families needs no database server). There is no scheduler and no queue worker:
+# nothing runs on a schedule, and a word's voice clip is made by PHP-FPM just
+# after the answer is sent to the Child (docs/deployment.md). Settings come from
 # Coolify's environment variables (listed in .env.production.example);
 # nothing secret is in this file.
 
@@ -61,8 +62,8 @@ services:
             # The session cookie is sent over HTTPS only.
             SESSION_SECURE_COOKIE: 'true'
             CACHE_STORE: database
-            # Nothing is queued yet and no worker runs, so a job someone adds
-            # later runs at once instead of waiting for a worker that isn't there.
+            # Nothing is queued and no worker runs, so a job someone adds later
+            # runs at once instead of waiting for a worker that isn't there.
             QUEUE_CONNECTION: sync
             FILESYSTEM_DISK: local
             MAIL_MAILER: log

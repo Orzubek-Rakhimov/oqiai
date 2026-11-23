@@ -21,8 +21,8 @@ export type WordMark = {
 
 /**
  * A misread word the Child deals with before the next sentence: its one
- * retry, or Syllable help once the retry was misread too. Clip URLs stay
- * null until the word's audio has been generated.
+ * retry, or Syllable help once the retry was misread too. The clip (its
+ * syllables read slowly, then the whole word) is null until it is made.
  */
 export type PendingWord = {
     stage: 'retry' | 'syllable_help';
@@ -30,7 +30,7 @@ export type PendingWord = {
     position: number;
     text: string;
     syllables: string[];
-    clips: { syllables: string | null; word: string | null };
+    clip: string | null;
 };
 
 /**

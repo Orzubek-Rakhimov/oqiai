@@ -4,8 +4,8 @@ namespace App\Speech;
 
 /**
  * A text-to-speech driver that needs no service, for tests and local demos.
- * Every clip is a short, silent WAV file; a scripted failure makes the next
- * call fail.
+ * Every clip is a short, silent WAV file; a scripted failure or rate limit
+ * makes the next call fail.
  */
 final class FakeTextToSpeech implements TextToSpeech
 {
@@ -15,9 +15,11 @@ final class FakeTextToSpeech implements TextToSpeech
     private const int SAMPLE_RATE = 24000;
 
     /**
-     * How many of the next calls fail.
+     * How the next calls fail, oldest first.
+     *
+     * @var list<TextToSpeechFailed>
      */
-    private int $failures = 0;
+    private array $failures = [];
 
     /**
      * Every text the fake was asked to read.
@@ -31,7 +33,17 @@ final class FakeTextToSpeech implements TextToSpeech
      */
     public function fails(): self
     {
-        $this->failures++;
+        $this->failures[] = new TextToSpeechFailed('The fake text-to-speech service was scripted to fail.');
+
+        return $this;
+    }
+
+    /**
+     * Script the next call as a rate-limit answer, with the Retry-After it gives.
+     */
+    public function rateLimited(?int $retryAfterSeconds = null): self
+    {
+        $this->failures[] = new TextToSpeechRateLimited('The fake text-to-speech service was scripted to be rate limited.', $retryAfterSeconds);
 
         return $this;
     }
@@ -55,10 +67,10 @@ final class FakeTextToSpeech implements TextToSpeech
             'language' => $options->language,
         ];
 
-        if ($this->failures > 0) {
-            $this->failures--;
+        $failure = array_shift($this->failures);
 
-            throw new TextToSpeechFailed('The fake text-to-speech service was scripted to fail.');
+        if ($failure !== null) {
+            throw $failure;
         }
 
         return $this->silence(seconds: 0.25 * count($parts));

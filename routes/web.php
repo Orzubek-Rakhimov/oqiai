@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Child\ClipController;
 use App\Http\Controllers\Child\HomeController as ChildHomeController;
 use App\Http\Controllers\Child\ReadingController;
 use App\Http\Controllers\Child\RetryController;
@@ -39,6 +40,9 @@ Route::middleware(['auth'])->group(function () {
             Route::post('child/readings/{reading}/retries', [RetryController::class, 'store'])->name('readings.retries.store');
         });
         Route::post('child/readings/{reading}/syllable-help', [SyllableHelpController::class, 'store'])->name('readings.syllable-help.store');
+        Route::get('child/readings/{reading}/clip', [ClipController::class, 'show'])
+            ->middleware('throttle:word-clips')
+            ->name('readings.clip.show');
     });
 });
 
