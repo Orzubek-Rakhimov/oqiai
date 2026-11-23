@@ -33,5 +33,9 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- No server-side rendering in tests. While public/hot exists (left behind by `npm run dev`,
+             even after the dev server stops), Inertia posts every page to the Vite dev server for SSR;
+             with nothing listening, each page render waits about 2 s for the refused connection. -->
+        <env name="INERTIA_SSR_ENABLED" value="false"/>
     </php>
 </phpunit>
