@@ -36,19 +36,50 @@ return [
     ],
 
     /*
-    | The speech-to-text driver that hears the Child read. "fake" returns
-    | scripted words (tests, local demos) and needs no service.
+    | The Gemini API (paid tier only, see docs/deployment.md). One key serves
+    | both the listening and the voice models.
     */
-    'speech_to_text' => [
-        'driver' => env('SPEECH_TO_TEXT_DRIVER', 'fake'),
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
     ],
 
     /*
-    | The text-to-speech driver that voices the Syllable help clips. "fake"
-    | makes short silent clips (tests, local demos) and needs no service.
+    | The speech-to-text driver that hears the Child read:
+    | - "fake" returns scripted words (tests, local demos) and needs no service;
+    | - "gemini" uses a Gemini transcription model (GEMINI_API_KEY);
+    | - "chirp" uses Google Cloud Speech-to-Text V2, signed in with a service
+    |   account key file (GOOGLE_APPLICATION_CREDENTIALS). The project is the
+    |   key file's unless CHIRP_PROJECT_ID is set.
+    | Production refuses "fake" (php artisan speech:check).
+    */
+    'speech_to_text' => [
+        'driver' => env('SPEECH_TO_TEXT_DRIVER', 'fake'),
+        'timeout' => 20,
+        'gemini' => [
+            'model' => env('GEMINI_TRANSCRIBE_MODEL', 'gemini-3.5-transcribe'),
+        ],
+        'chirp' => [
+            'model' => env('CHIRP_MODEL', 'chirp_3'),
+            'location' => env('CHIRP_LOCATION', 'us'),
+            'project' => env('CHIRP_PROJECT_ID'),
+            'credentials' => env('GOOGLE_APPLICATION_CREDENTIALS'),
+        ],
+    ],
+
+    /*
+    | The text-to-speech driver that voices the Syllable help clips:
+    | - "fake" makes short silent clips (tests, local demos) and needs no service;
+    | - "gemini" uses a Gemini speech model (GEMINI_API_KEY), such as
+    |   gemini-3.8-flash-tts or the cheaper gemini-3.8-flash-lite-tts.
+    | Production refuses "fake" (php artisan speech:check).
     */
     'text_to_speech' => [
         'driver' => env('TEXT_TO_SPEECH_DRIVER', 'fake'),
+        'timeout' => 60,
+        'gemini' => [
+            'model' => env('GEMINI_TTS_MODEL', 'gemini-3.8-flash-tts'),
+            'voice' => env('GEMINI_TTS_VOICE', 'Kore'),
+        ],
     ],
 
 ];

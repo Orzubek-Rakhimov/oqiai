@@ -71,8 +71,9 @@ Children's recordings are never saved, on the server or anywhere else
       `https://oqi.example.uz`. It must start with `https://`, or the app
       refuses to start.
 
-    Leave the speech and voice keys (`GEMINI_API_KEY` and the others) empty
-    until ticket 13 connects those services.
+    - `GEMINI_API_KEY`: the paid-tier Gemini API key (see
+      [Speech-to-text and voice](#speech-to-text-and-voice)). Without it the
+      app refuses to start.
 
 4. Leave **automatic deployment off** for now (step 5 sets up deploys).
 5. **Deploy.** The first build takes several minutes. On the first start
@@ -100,8 +101,12 @@ Run both again after every deploy that adds or changes a Story file.
 `audio:generate` makes the Syllable help clips that are still missing (each
 word's syllables read slowly with pauses, and the whole word read slowly) and
 keeps the ones that exist. The clips land in the `app-storage` volume and
-outlive every redeploy. If one word sounds wrong, make its clips again with
-`php artisan audio:generate <word>`. Never run the database seeder on the
+outlive every redeploy. **Listen to every new clip** before Children use it
+(they are under `https://<domain>/storage/audio/syllables/` and
+`https://<domain>/storage/audio/words/`): a syllable read as a letter name,
+or a word read too fast, teaches the wrong sound. If one word sounds wrong,
+make its clips again with `php artisan audio:generate <word>`, and listen
+again. Never run the database seeder on the
 server: it creates a login with a known password.
 
 ### 4. Check it
@@ -214,6 +219,79 @@ their own backup (**Settings → Backup**).
 5. Change the domain's `A` record to the new server, update the two GitHub
    secrets (step 5), and remove the old resource once all is well.
 
+## Speech-to-text and voice
+
+The app listens to the Child with a speech-to-text service and voices the
+Syllable help clips with a text-to-speech service, both from Google. Which
+ones is set by environment variables in Coolify; changing them needs a
+restart (**Redeploy**), not a code change.
+
+### Before connecting anything
+
+- **The paid tier only.** Use a Gemini API key from a Google Cloud project
+  with billing switched on (the paid tier). On the free tier Google may use
+  what it is sent to improve its products, and people may read it; it must
+  never receive children's recordings. Check that the key's project shows the
+  paid tier in Google AI Studio before putting the key in Coolify.
+- **Google's written approval.** Gemini's terms otherwise forbid services
+  aimed at under-18s. Keep Google's written confirmation that O'qi AI may use
+  these models in a children's app on file, and check that it covers any
+  model you switch to.
+
+### The settings
+
+| Setting                          | Default                                                         | What it does                                                                                                                                       |
+| -------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                 | (required)                                                      | The paid-tier key. One key serves both listening and the voice                                                                                     |
+| `SPEECH_TO_TEXT_DRIVER`          | `gemini`                                                        | Who listens: `gemini` or `chirp`                                                                                                                   |
+| `GEMINI_TRANSCRIBE_MODEL`        | `gemini-3.5-transcribe`                                         | The Gemini listening model. Always run in verbatim mode in Uzbek (`uz-UZ`) and never sent the Story text, so a misread word is never smoothed over |
+| `TEXT_TO_SPEECH_DRIVER`          | `gemini`                                                        | Who voices the clips: `gemini`                                                                                                                     |
+| `GEMINI_TTS_MODEL`               | `gemini-3.8-flash-tts`                                          | The voice model. `gemini-3.8-flash-lite-tts` is the cheaper fallback                                                                               |
+| `GEMINI_TTS_VOICE`               | `Kore`                                                          | One of Gemini's prebuilt voices (Kore, Aoede, Leda, Puck and others, listed in Google's speech generation guide)                                   |
+| `CHIRP_MODEL`                    | `chirp_3`                                                       | Only for `chirp`: the Google Cloud Speech-to-Text model                                                                                            |
+| `CHIRP_LOCATION`                 | `us`                                                            | Only for `chirp`: the region, `us` or `eu` (Uzbek is in Preview for `chirp_3`)                                                                     |
+| `CHIRP_PROJECT_ID`               | the key file's project                                          | Only for `chirp`: the Google Cloud project, if it isn't the service account's own                                                                  |
+| `GOOGLE_APPLICATION_CREDENTIALS` | `/var/www/html/storage/app/private/google-service-account.json` | Only for `chirp`: the service account's JSON key file                                                                                              |
+
+The app **refuses to start** (`php artisan speech:check`, in the start-up
+checks) when either driver is `fake`, because the fake listener scores every
+sentence as perfect. It also refuses when a Gemini driver has no
+`GEMINI_API_KEY`, or when `chirp` has no key file. Coolify's log then says
+which setting is wrong.
+
+If a service fails or takes too long (20 seconds to listen, 60 to make a
+clip), the Child is asked to read the sentence again and nothing is scored.
+
+### Comparing Gemini and Chirp
+
+Listening can use either Google service, to compare them on real children's
+reading:
+
+- **Gemini** (the default): `SPEECH_TO_TEXT_DRIVER=gemini`.
+- **Chirp 3** (Google Cloud Speech-to-Text V2, `chirp_3`, no phrase hints):
+    1. In the Google Cloud console, in the project with billing, enable the
+       **Cloud Speech-to-Text API**. Create a service account with the role
+       **Cloud Speech Client** and make a **JSON key** for it.
+       Speech-to-Text takes no API key for this call: the app signs in as the
+       service account and keeps the sign-in for about 55 minutes.
+    2. Put the key file on the server, on the `app-storage` volume, where it
+       is never served (nginx serves only `storage/app/public`). In the
+       `oqi-php` terminal, run
+       `cat > storage/app/private/google-service-account.json`, paste the
+       file's contents, press Enter, then Ctrl+D.
+    3. Set `SPEECH_TO_TEXT_DRIVER=chirp` and redeploy.
+
+Switch back with `SPEECH_TO_TEXT_DRIVER=gemini` and redeploy. Locally, the
+same settings in `.env` work with `composer run dev`.
+
+### Changing the voice
+
+Clips already made keep the old voice after `GEMINI_TTS_MODEL` or
+`GEMINI_TTS_VOICE` changes. Make them again one word at a time with
+`php artisan audio:generate <word>`, or remove `storage/app/public/audio` in
+the `oqi-php` terminal and run `php artisan audio:generate`. Then **listen to
+every clip**, as in [step 3](#3-the-stories-and-their-voice-clips).
+
 ## Settings worth knowing
 
 - **`RUN_MIGRATIONS`** (default `true`): set it to `false` for one deploy to
@@ -232,6 +310,8 @@ their own backup (**Settings → Backup**).
   (128M), `APP_CPUS` (1) and `WEB_CPUS` (0.5). The app serves up to 10
   requests at once (`docker/php/fpm-pool.conf`); raise that together with
   `APP_MEMORY`.
+- **The speech and voice settings**: see
+  [Speech-to-text and voice](#speech-to-text-and-voice).
 - `APP_ENV=production`, `APP_DEBUG=false`, the SQLite settings and
   HTTPS-only cookies are fixed in the compose file and can't be changed from
   Coolify.

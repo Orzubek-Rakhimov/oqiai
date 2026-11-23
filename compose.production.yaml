@@ -73,9 +73,25 @@ services:
             # The safety copies before a deploy, next to the database.
             DEPLOY_BACKUP_PATH: /var/www/html/storage/database/before-deploy
             DEPLOY_BACKUPS_TO_KEEP: ${DEPLOY_BACKUPS_TO_KEEP:-3}
-            # The speech-to-text and voice services (ticket 13). Empty until they
-            # are chosen and connected.
+            # The speech-to-text and voice services (docs/deployment.md). The
+            # drivers default to the real Gemini ones here, never to `fake`:
+            # an empty placeholder would hand the app an empty driver instead
+            # of a default, so each has a real value. The app refuses to start
+            # with a fake driver or without GEMINI_API_KEY (php artisan speech:check).
+            SPEECH_TO_TEXT_DRIVER: ${SPEECH_TO_TEXT_DRIVER:-gemini}
+            TEXT_TO_SPEECH_DRIVER: ${TEXT_TO_SPEECH_DRIVER:-gemini}
             GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+            GEMINI_TRANSCRIBE_MODEL: ${GEMINI_TRANSCRIBE_MODEL:-gemini-3.5-transcribe}
+            GEMINI_TTS_MODEL: ${GEMINI_TTS_MODEL:-gemini-3.8-flash-tts}
+            GEMINI_TTS_VOICE: ${GEMINI_TTS_VOICE:-Kore}
+            # Only for SPEECH_TO_TEXT_DRIVER=chirp: Google Cloud Speech-to-Text,
+            # signed in with a service account key file kept on the app-storage
+            # volume (never served: nginx serves only storage/app/public).
+            CHIRP_MODEL: ${CHIRP_MODEL:-chirp_3}
+            CHIRP_LOCATION: ${CHIRP_LOCATION:-us}
+            CHIRP_PROJECT_ID: ${CHIRP_PROJECT_ID:-}
+            GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/var/www/html/storage/app/private/google-service-account.json}
+            # Kept for the Azure fallback voice, which isn't built: nothing reads them yet.
             AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY:-}
             AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION:-}
         volumes:

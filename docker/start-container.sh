@@ -1,7 +1,9 @@
 #!/bin/sh
 # Runs each time the app's service starts.
 #
-# - Refuses to start with settings that would be unsafe in production.
+# - Refuses to start with settings that would be unsafe in production,
+#   including a fake speech-to-text or voice driver, or a real one without
+#   its key (php artisan speech:check).
 # - Creates the SQLite database file on the first start (it lives on the
 #   database volume, so it outlives every redeploy).
 # - Caches the configuration, routes, events and views for speed (the
@@ -39,6 +41,10 @@ php artisan config:cache --no-interaction
 php artisan route:cache --no-interaction
 php artisan event:cache --no-interaction
 php artisan view:cache --no-interaction
+
+# The fake listener scores every sentence as perfect: a server set up with
+# it must not start (see docs/deployment.md, "Speech-to-text and voice").
+php artisan speech:check --no-interaction
 
 if [ "${1:-}" = "php-fpm" ]; then
     rm -f /tmp/ready
