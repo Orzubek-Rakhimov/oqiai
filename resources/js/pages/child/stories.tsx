@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { BookOpen } from 'lucide-react';
 import ChildTabBar from '@/components/child-tab-bar';
 import { cn } from '@/lib/utils';
+import { store as storeReading } from '@/routes/readings';
 import { index as storiesIndex } from '@/routes/stories';
 import type { LibraryStory, StoryLevel } from '@/types';
 
@@ -62,36 +63,41 @@ export default function Stories({
                 ) : (
                     <ul className="mt-5 grid grid-cols-2 gap-3">
                         {stories.map((story) => (
-                            <li
-                                key={story.id}
-                                className="flex flex-col overflow-hidden rounded-3xl border-2 bg-card"
-                            >
-                                <div
-                                    className="flex h-24 items-center justify-center text-white/90"
-                                    style={{
-                                        backgroundColor:
-                                            coverColours[
-                                                story.id % coverColours.length
-                                            ],
-                                    }}
-                                    aria-hidden
+                            <li key={story.id} className="flex">
+                                <Link
+                                    href={storeReading(story.id)}
+                                    as="button"
+                                    className="flex w-full flex-col overflow-hidden rounded-3xl border-2 bg-card text-left"
+                                    data-test="open-story"
                                 >
-                                    <BookOpen className="size-10" />
-                                </div>
-                                <div className="flex flex-1 flex-col gap-1 p-3">
-                                    <h2 className="font-heading text-base leading-tight font-extrabold">
-                                        {story.title}
-                                    </h2>
-                                    <p className="text-xs text-muted-foreground">
-                                        {story.level}-daraja · {story.minutes}{' '}
-                                        daqiqa
-                                    </p>
-                                    {story.isNew && (
-                                        <span className="mt-auto self-start rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-primary">
-                                            Yangi
-                                        </span>
-                                    )}
-                                </div>
+                                    <div
+                                        className="flex h-24 items-center justify-center text-white/90"
+                                        style={{
+                                            backgroundColor:
+                                                coverColours[
+                                                    story.id %
+                                                        coverColours.length
+                                                ],
+                                        }}
+                                        aria-hidden
+                                    >
+                                        <BookOpen className="size-10" />
+                                    </div>
+                                    <div className="flex flex-1 flex-col gap-1 p-3">
+                                        <h2 className="font-heading text-base leading-tight font-extrabold">
+                                            {story.title}
+                                        </h2>
+                                        <p className="text-xs text-muted-foreground">
+                                            {story.level}-daraja ·{' '}
+                                            {story.minutes} daqiqa
+                                        </p>
+                                        {story.isNew && (
+                                            <span className="mt-auto self-start rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-primary">
+                                                Yangi
+                                            </span>
+                                        )}
+                                    </div>
+                                </Link>
                             </li>
                         ))}
                     </ul>

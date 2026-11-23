@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Child\HomeController as ChildHomeController;
+use App\Http\Controllers\Child\ReadingController;
+use App\Http\Controllers\Child\SentenceController;
 use App\Http\Controllers\Child\StoryController;
 use App\Http\Controllers\Parent\ChildController;
 use App\Http\Controllers\Parent\HomeController as ParentHomeController;
@@ -22,6 +24,9 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['active-child'])->group(function () {
         Route::get('child', ChildHomeController::class)->name('child.home');
         Route::get('child/stories', [StoryController::class, 'index'])->name('stories.index');
+        Route::post('child/stories/{story}/readings', [ReadingController::class, 'store'])->name('readings.store');
+        Route::get('child/readings/{reading}', [ReadingController::class, 'show'])->name('readings.show');
+        Route::post('child/readings/{reading}/sentences', [SentenceController::class, 'store'])->name('readings.sentences.store');
     });
 });
 

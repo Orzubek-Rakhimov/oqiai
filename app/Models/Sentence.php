@@ -45,6 +45,19 @@ class Sentence extends Model
     }
 
     /**
+     * Get the sentence as the reading screen shows it: its position and its words as displayed.
+     *
+     * @return array{position: int, words: list<string>}
+     */
+    public function toReaderArray(): array
+    {
+        return [
+            'position' => $this->position,
+            'words' => array_values($this->words->map(fn (Word $word): string => $word->text)->all()),
+        ];
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

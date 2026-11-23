@@ -75,13 +75,16 @@ return [
     */
 
     'attributes' => [
+        'audio' => 'yozuv',
         'avatar' => 'rasm',
         'current_password' => 'joriy parol',
+        'duration_ms' => 'yozuv uzunligi',
         'grade' => 'sinf',
         'name' => 'ism',
         'password' => 'parol',
         'password_confirmation' => 'parol tasdig\'i',
         'phone' => 'telefon raqami',
+        'sentence' => 'gap',
     ],
 
 ];
