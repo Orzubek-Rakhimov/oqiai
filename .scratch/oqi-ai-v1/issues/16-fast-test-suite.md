@@ -4,9 +4,9 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The root cause is found and explained in the report, with evidence (e.g. timing before and after one change).
-- [ ] The full suite runs in roughly the time it did before ticket 14 (well under a minute on this machine). Every test still passes, and none is deleted or skipped.
-- [ ] If the cause is in app code (e.g. ticket 14's after-response clip work, cache locks or retries), the fix keeps production behaviour as ticket 14 specifies. If it's test-only, the fix lives in test setup.
-- [ ] If the cause is the machine (e.g. a full C: drive), the report says so plainly with evidence, and any project-side mitigation (such as a temp path setting for tests) is documented.
+- [x] The root cause is found and explained in the report, with evidence (e.g. timing before and after one change).
+- [x] The full suite runs in roughly the time it did before ticket 14 (well under a minute on this machine). Every test still passes, and none is deleted or skipped.
+- [x] If the cause is in app code (e.g. ticket 14's after-response clip work, cache locks or retries), the fix keeps production behaviour as ticket 14 specifies. If it's test-only, the fix lives in test setup.
+- [x] If the cause is the machine (e.g. a full C: drive), the report says so plainly with evidence, and any project-side mitigation (such as a temp path setting for tests) is documented.
